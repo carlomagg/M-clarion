@@ -73,7 +73,7 @@ axios.interceptors.response.use(
                     // If refresh fails, logout user
                     console.error('Token refresh failed:', refreshError);
                     auth.logout();
-                    window.location.href = '/login';
+                    router.navigate('/login');
                     return Promise.reject(refreshError);
                 }
             }
@@ -82,7 +82,7 @@ axios.interceptors.response.use(
         // Handle refresh token expiry
         if (error.response.status === 401 && originalRequest?.url === 'clarion_users/token/refresh/') {
             auth.logout();
-            window.location.href = '/login';
+            router.navigate('/login');
         }
         
         return Promise.reject(error);

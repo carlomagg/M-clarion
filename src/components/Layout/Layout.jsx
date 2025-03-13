@@ -26,9 +26,9 @@ const Layout = () => {
 
     useEffect(() => {
         if (!isLoggedIn) {
-            window.location.href = '/login';
+            navigate('/login');
         }
-    }, [isLoggedIn]);
+    }, [isLoggedIn, navigate]);
 
     useEffect(() => {
         if (contentArea.current) {

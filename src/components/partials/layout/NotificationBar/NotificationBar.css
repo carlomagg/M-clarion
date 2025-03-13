@@ -1,0 +1,9 @@
+.has-vertical-dividers > div:not(:last-child)::after {
+    content: '';
+    display: inline-block;
+    margin-left: 1rem;
+    margin-top: 4px;
+    height: .9rem;
+    width: 1px;
+    background-color: #D5D5D5;
+}

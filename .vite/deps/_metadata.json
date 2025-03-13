@@ -1,0 +1,112 @@
+{
+  "hash": "a8b88c21",
+  "configHash": "c8456b32",
+  "lockfileHash": "c8b1bffa",
+  "browserHash": "9e749ba6",
+  "optimized": {
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "165a1970",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "67a81151",
+      "needsInterop": true
+    },
+    "react-tooltip": {
+      "src": "../../node_modules/react-tooltip/dist/react-tooltip.min.mjs",
+      "file": "react-tooltip.js",
+      "fileHash": "724cd036",
+      "needsInterop": false
+    },
+    "@tanstack/react-query": {
+      "src": "../../node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "ab48ced5",
+      "needsInterop": false
+    },
+    "axios": {
+      "src": "../../node_modules/axios/index.js",
+      "file": "axios.js",
+      "fileHash": "4b65a9cf",
+      "needsInterop": false
+    },
+    "lockr": {
+      "src": "../../node_modules/lockr/dist/index.mjs",
+      "file": "lockr.js",
+      "fileHash": "31060aed",
+      "needsInterop": false
+    },
+    "react-loading-skeleton": {
+      "src": "../../node_modules/react-loading-skeleton/dist/index.js",
+      "file": "react-loading-skeleton.js",
+      "fileHash": "488218cf",
+      "needsInterop": false
+    },
+    "use-react-router-breadcrumbs": {
+      "src": "../../node_modules/use-react-router-breadcrumbs/dist/es/index.js",
+      "file": "use-react-router-breadcrumbs.js",
+      "fileHash": "761e018d",
+      "needsInterop": false
+    },
+    "crypto-js": {
+      "src": "../../node_modules/crypto-js/index.js",
+      "file": "crypto-js.js",
+      "fileHash": "2ce16cf2",
+      "needsInterop": true
+    },
+    "use-immer": {
+      "src": "../../node_modules/use-immer/dist/use-immer.module.mjs",
+      "file": "use-immer.js",
+      "fileHash": "3f84d5dd",
+      "needsInterop": false
+    },
+    "papaparse": {
+      "src": "../../node_modules/papaparse/papaparse.min.js",
+      "file": "papaparse.js",
+      "fileHash": "c30e824c",
+      "needsInterop": true
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "d577cc65",
+      "needsInterop": false
+    },
+    "react-drag-drop-files": {
+      "src": "../../node_modules/react-drag-drop-files/dist/react-drag-drop-files.esm.js",
+      "file": "react-drag-drop-files.js",
+      "fileHash": "93280482",
+      "needsInterop": false
+    },
+    "react-otp-input": {
+      "src": "../../node_modules/react-otp-input/lib/index.esm.js",
+      "file": "react-otp-input.js",
+      "fileHash": "99702a69",
+      "needsInterop": false
+    },
+    "easytimer.js": {
+      "src": "../../node_modules/easytimer.js/dist/easytimer.js",
+      "file": "easytimer__js.js",
+      "fileHash": "59c1bacb",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-I67Z2SES": {
+      "file": "chunk-I67Z2SES.js"
+    },
+    "chunk-EWFHFZ6H": {
+      "file": "chunk-EWFHFZ6H.js"
+    },
+    "chunk-F4ERGI4E": {
+      "file": "chunk-F4ERGI4E.js"
+    },
+    "chunk-QHEXK6IG": {
+      "file": "chunk-QHEXK6IG.js"
+    }
+  }
+}

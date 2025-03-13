@@ -1,0 +1,27 @@
+.hide {
+    transform: translateY(3.5rem);
+    animation: slide-down .5s ease-in-out;
+}
+
+.show {
+    transform: translateY(-3.5rem);
+    animation: slide-up .3s ease-in-out;
+}
+
+@keyframes slide-up {
+    from {
+        transform: translateY(3.5rem);
+    }
+    to {
+        transform: translateY(-3.5rem);
+    }
+}
+
+@keyframes slide-down {
+    from {
+        transform: translateY(-3.5rem);
+    }
+    to {
+        transform: translateY(3.5rem);
+    }
+}

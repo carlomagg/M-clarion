@@ -3,7 +3,7 @@ import useUser from "../../../../../hooks/useUser";
 import chevronDownIcon from "../../../../../assets/icons/chevron-down.svg";
 import GlobalModalContext from "../../../../../contexts/global-modal-context";
 import AuthContext from "../../../../../contexts/auth-context";
-import { Lock, Star, MessageCircle, ChevronRight, Shield, Mail, CircleUser, Headphones, MessageSquare, LogOut, Eye, UserRoundCog } from 'lucide-react';
+import { Lock, Star, MessageCircle, ChevronRight, Shield, Mail, CircleUser, Headphones, MessageSquare, LogOut, Eye, UserRoundCog, PenSquare } from 'lucide-react';
 import { Switch } from '@headlessui/react';
 import SupportModal from './SupportModal';
 import FeedbackModal from './FeedbackModal';
@@ -123,23 +123,21 @@ export default function SessionButton() {
                                     <div className="flex items-center gap-2">
                                         <CircleUser size={16} className="text-[#FF69B4]" />
                                         <div>
-                                            <div className="text-[13px]">{firstName} {lastName}</div>
+                                            <div className="text-[13px] flex items-center gap-2">
+                                                {firstName} {lastName}
+                                                <button onClick={handleProfileClicked} className="hover:bg-gray-100 p-1 rounded">
+                                                    <PenSquare size={14} className="text-[#FF69B4]" />
+                                                </button>
+                                            </div>
                                             <div className="text-[10px] text-gray-400">Full name</div>
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={handleProfileClicked} className="w-full px-4 py-[10px] flex items-center justify-between hover:bg-gray-50">
-                                    <div className="flex items-center gap-2">
-                                        <UserRoundCog size={16} className="text-[#FF69B4]" />
-                                        <span className="text-[13px]">Profile</span>
-                                    </div>
-                                    <ChevronRight size={14} className="text-gray-600" />
-                                </button>
                                 <div className="px-4 py-[10px] flex items-center justify-between hover:bg-gray-50">
                                     <div className="flex items-center gap-2">
                                         <Mail size={16} className="text-[#FF69B4]" />
                                         <div>
-                                            <div className="text-[13px]">{maskEmail(email)}</div>
+                                            <div className="text-[13px]">{hideSensitiveData ? maskEmail(email) : email}</div>
                                             <div className="text-[10px] text-gray-400">E-mail</div>
                                         </div>
                                     </div>

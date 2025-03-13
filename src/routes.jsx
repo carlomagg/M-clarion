@@ -221,6 +221,11 @@ const ROUTES = [
                 breadcrumb: 'License Management'
             },
         ]
+    },
+    // Catch-all route for 404s
+    {
+        path: '*',
+        element: <ErrorPage />
     }
 ]
 

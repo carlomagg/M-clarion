@@ -8,6 +8,7 @@ import allowedIcon from '../../../assets/icons/encircled-check.svg';
 import useDispatchMessage from '../../../hooks/useDispatchMessage';
 import ActionsDropdown from '../../partials/dropdowns/ActionsDropdown/ActionsDropdown';
 import { set } from 'lockr';
+import { PenSquare } from 'lucide-react';
 
 function UserPreferences() {
     const [mode, setMode] = useState('view');
@@ -161,7 +162,9 @@ function EditMode({ showViewMode }) {
                         <div className='flex flex-col gap-3'>
                             <div className='flex justify-between items-center'>
                                 <label htmlFor="password" className='font-medium'>Password</label>
-                                <span onClick={() => setEditPassword(true)} className='text-sm text-text-pink cursor-pointer mr-8'>Edit</span>
+                                <button onClick={() => setEditPassword(true)} className='p-1 hover:bg-gray-100 rounded mr-8'>
+                                    <PenSquare size={14} className="text-[#FF69B4]" />
+                                </button>
                             </div>
                             <Input name={'password'} type={'password'} placeholder={'***********'} disabled={true} />
                         </div>

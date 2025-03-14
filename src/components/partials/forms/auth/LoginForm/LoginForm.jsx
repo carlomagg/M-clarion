@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import openEyeIcon from '../../../../../assets/icons/open-eye.svg';
+import closedEyeIcon from '../../../../../assets/icons/closed-eye.svg';
 
 function LoginForm({ setForm, form, setIsLoggedIn, setLoginResponse }) {
     const [error, setError] = useState('');
@@ -64,10 +66,14 @@ function LoginForm({ setForm, form, setIsLoggedIn, setLoginResponse }) {
                         />
                         <button
                             type="button"
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2"
                             onClick={() => setShowPassword(!showPassword)}
                         >
-                            {showPassword ? 'Hide' : 'Show'}
+                            <img 
+                                src={showPassword ? openEyeIcon : closedEyeIcon} 
+                                alt={showPassword ? "Hide password" : "Show password"}
+                                className="w-6 h-6"
+                            />
                         </button>
                     </div>
                 </div>

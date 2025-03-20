@@ -21,7 +21,10 @@ function SelectDropdown({
     const dropdownRef = useRef(null);
     const [selectedValue, setSelectedValue] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(null);
-    const stringItems = Array.isArray(items) && items.length > 0 && typeof items[0] === 'string';
+    
+    // Ensure items is always an array
+    const safeItems = Array.isArray(items) ? items : [];
+    const stringItems = safeItems.length > 0 && typeof safeItems[0] === 'string';
 
     // Handle click outside to close dropdown
     useEffect(() => {
@@ -37,8 +40,8 @@ function SelectDropdown({
 
     // Update selected value when selected prop changes
     useEffect(() => {
-        if (selected && items.length > 0) {
-            const sel = stringItems ? selected : items.find(item => item.id === selected)?.text;
+        if (selected && safeItems.length > 0) {
+            const sel = stringItems ? selected : safeItems.find(item => item.id === selected)?.text;
             if (filterable && setFilterTerm) {
                 setFilterTerm(sel || '');
             } else {
@@ -51,7 +54,7 @@ function SelectDropdown({
                 setSelectedValue('');
             }
         }
-    }, [selected, items, stringItems, filterable, setFilterTerm]);
+    }, [selected, safeItems, stringItems, filterable, setFilterTerm]);
 
     function handleSelect(item, i) {
         if (customAction && typeof customAction === 'function') {
@@ -68,7 +71,7 @@ function SelectDropdown({
 
     function handleKeyStroke(e) {
         const { key } = e;
-        const itemsLength = items.length;
+        const itemsLength = safeItems.length;
         const toggleFn = onToggleCollapse || onToggleCollpase;
 
         switch (key) {
@@ -76,7 +79,7 @@ function SelectDropdown({
                 e.preventDefault();
                 if (itemsLength > 0) {
                     const nextIndex = selectedIndex !== null ? (selectedIndex + 1) % itemsLength : 0;
-                    handleSelect(items[nextIndex], nextIndex);
+                    handleSelect(safeItems[nextIndex], nextIndex);
                 }
                 break;
             case 'ArrowUp':
@@ -85,7 +88,7 @@ function SelectDropdown({
                     const prevIndex = selectedIndex !== null ? 
                         (selectedIndex - 1 + itemsLength) % itemsLength : 
                         itemsLength - 1;
-                    handleSelect(items[prevIndex], prevIndex);
+                    handleSelect(safeItems[prevIndex], prevIndex);
                 }
                 break;
             case 'Enter':
@@ -96,28 +99,10 @@ function SelectDropdown({
         }
     }
 
-    const chevron = (
-        <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{
-                transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-                transition: 'transform 0.2s ease-in-out'
-            }}
-        >
-            <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M6.35853 8.75857C6.58356 8.53361 6.88873 8.40723 7.20693 8.40723C7.52513 8.40723 7.8303 8.53361 8.05533 8.75857L12.0069 12.7102L15.9585 8.75857C16.1849 8.53998 16.488 8.41903 16.8026 8.42176C17.1173 8.4245 17.4182 8.5507 17.6407 8.77319C17.8632 8.99568 17.9894 9.29665 17.9921 9.61129C17.9949 9.92593 17.8739 10.229 17.6553 10.4554L12.8553 15.2554C12.6303 15.4803 12.3251 15.6067 12.0069 15.6067C11.6887 15.6067 11.3836 15.4803 11.1585 15.2554L6.35853 10.4554C6.13357 10.2303 6.00719 9.92517 6.00719 9.60697C6.00719 9.28877 6.13357 8.9836 6.35853 8.75857Z"
-                fill="#000"
-            />
-        </svg>
-    );
-
     const toggleFn = onToggleCollapse || onToggleCollpase;
+    const chevron = <svg className={`transition-transform ${!isCollapsed ? 'rotate-180' : ''}`} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 9L12 15L18 9" stroke="#A1A1A1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
 
     return (
         <div className="flex flex-col gap-3" ref={dropdownRef}>
@@ -149,9 +134,9 @@ function SelectDropdown({
                     {chevron}
                 </button>
                 
-                {!isCollapsed && items.length > 0 && (
+                {!isCollapsed && safeItems.length > 0 && (
                     <ul className="absolute z-50 w-full max-h-48 overflow-y-auto bg-white border border-border-gray rounded-lg mt-1 shadow-lg">
-                        {items.map((item, i) => (
+                        {safeItems.map((item, i) => (
                             <li
                                 key={stringItems ? item : item.id}
                                 onClick={() => handleSelect(item, i)}
@@ -161,7 +146,7 @@ function SelectDropdown({
                                         (item === selected && 'bg-gray-200') : 
                                         (item.id === selected && 'bg-gray-200')
                                     }
-                                    ${i !== items.length - 1 ? 'border-b border-border-gray' : ''}
+                                    ${i !== safeItems.length - 1 ? 'border-b border-border-gray' : ''}
                                 `}
                             >
                                 {stringItems ? item : item.text}

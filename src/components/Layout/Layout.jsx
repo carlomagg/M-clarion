@@ -42,9 +42,13 @@ const Layout = () => {
                         const currentTime = Math.floor(Date.now() / 1000);
                         if (currentTime > refreshTokenData.expiry) {
                             clearInterval(checkTokenExpiration);
-                            auth.logout();
-                            setIsLoggedIn(false);
-                            navigate('/login', { replace: true });
+                            // Show message and delay redirect
+                            setMessage({ type: 'info', text: 'Your session has expired. You will be redirected to login.' });
+                            setTimeout(() => {
+                                auth.logout();
+                                setIsLoggedIn(false);
+                                navigate('/login', { replace: true, state: { sessionExpired: true } });
+                            }, 3000); // 3 second delay
                         }
                     }
                 }, 60000); // Check every minute

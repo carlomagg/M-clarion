@@ -24,7 +24,7 @@ function AddMultipleUsers() {
                 // Store created users with their IDs
                 const processedUsers = data.users.map(user => ({
                     ...user,
-                    user_id: user.id || user.user_id, // Ensure we have the user ID
+                    user_id: user.id || user.user_id,
                     firstname: user.first_name || user.firstname,
                     lastname: user.last_name || user.lastname,
                     email: user.email_address || user.email
@@ -33,20 +33,21 @@ function AddMultipleUsers() {
                 setCreatedUsers(processedUsers);
                 setShowPasswordModal(true);
                 
-                // Show success message
-                dispatchMessage('success', `Successfully created ${processedUsers.length} users`);
+                // Show success message with improved text
+                dispatchMessage('success', `Successfully created ${processedUsers.length} user${processedUsers.length > 1 ? 's' : ''}`);
                 
                 // Invalidate users query to refresh the list
                 queryClient.invalidateQueries({queryKey: ['users']});
             } else {
-                dispatchMessage('success', data.message);
+                dispatchMessage('success', data.message || 'Users created successfully');
                 queryClient.invalidateQueries({queryKey: ['users']});
                 navigate('/users');
             }
         },
         onError: (error) => {
             console.error('CSV upload error:', error);
-            dispatchMessage('error', error.response?.data?.message || 'Failed to add users');
+            const errorMessage = error.response?.data?.message || 'Failed to add users. Please try again.';
+            dispatchMessage('error', errorMessage);
         }
     });
 

@@ -4,7 +4,7 @@ import './Login.css'
 import LoginForm from '../../../partials/forms/auth/LoginForm/LoginForm'
 import VerifyOTPForm from '../../../partials/forms/auth/VerifyOTPForm/VerifyOTPForm'
 import { set } from 'lockr'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '../../../../utils/consts'
 
 function Login() {
@@ -17,6 +17,17 @@ function Login() {
     const [loginResponse, setLoginResponse] = useState(null); // filled after user login (only used in case of super admin)
     const [authResponse, setAuthResponse] = useState(null); // filled after opt verification
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Show session expired message if redirected from expired session
+    const [sessionMessage, setSessionMessage] = useState('');
+    useEffect(() => {
+        if (location.state?.sessionExpired) {
+            setSessionMessage('Your session has expired. Please log in again.');
+            // Clear the state to prevent message showing on refresh
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     // authenticate super user immediately after login without needing to verify otp
     useEffect(() => {
@@ -54,6 +65,11 @@ function Login() {
             <div className='flex flex-col justify-center items-center'>
                 <div className='w-full p-4 max-w-[500px] bg-white rounded-lg shadow-md border-2 border-pink-500'>
                     <img src={logo} alt='' className='mb-6 self-start' height={28} width={122}/>
+                    {sessionMessage && (
+                        <div className="bg-blue-50 text-blue-600 p-3 rounded-md mb-4">
+                            {sessionMessage}
+                        </div>
+                    )}
                     {
                         (!isLoggedIn || isSuperUser) ?
                         <LoginForm {...{setForm, form, setIsLoggedIn, setLoginResponse}} /> :

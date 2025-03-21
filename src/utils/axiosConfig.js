@@ -36,6 +36,56 @@ axiosInstance.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        // Special handling for token refresh errors
+        if (config.url === '/clarion_users/token/refresh/') {
+            // Show session expired message using custom event
+            const event = new CustomEvent('sessionExpired', {
+                detail: { 
+                    message: 'Your session has expired and could not be renewed. Please log in again.',
+                    type: 'error'
+                }
+            });
+            window.dispatchEvent(event);
+            
+            // Clear any stored tokens
+            localStorage.removeItem('mc_access');
+            localStorage.removeItem('mc_refresh');
+            
+            // Redirect to login after a short delay
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 3000);
+            
+            return Promise.reject(error);
+        }
+
+        // Handle 401 Unauthorized errors
+        if (error.response.status === 401) {
+            // Don't handle 401s for login-related endpoints except token refresh (handled above)
+            const loginEndpoints = ['/clarion_users/login/', '/clarion_users/verify_login_otp/'];
+            if (!loginEndpoints.includes(config.url)) {
+                // Show session expired message using custom event
+                const event = new CustomEvent('sessionExpired', {
+                    detail: { 
+                        message: 'Your session has expired. Please log in again.',
+                        type: 'warning'
+                    }
+                });
+                window.dispatchEvent(event);
+                
+                // Clear any stored tokens
+                localStorage.removeItem('mc_access');
+                localStorage.removeItem('mc_refresh');
+                
+                // Redirect to login after a short delay
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                
+                return Promise.reject(new Error('Session expired. Please log in again.'));
+            }
+        }
+
         // Retry on network errors or 5xx errors
         if (error.code === 'ECONNRESET' || 
             error.code === 'ETIMEDOUT' ||

@@ -83,6 +83,37 @@ const Layout = () => {
         setGlobalModalBag(null);
     };
 
+    // Add message display component
+    const MessageDisplay = () => {
+        useEffect(() => {
+            if (message) {
+                // Auto-dismiss message after 5 seconds
+                const timer = setTimeout(() => {
+                    setMessage(null);
+                }, 5000);
+                return () => clearTimeout(timer);
+            }
+        }, [message]);
+
+        if (!message) return null;
+        
+        return (
+            <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 flex items-center ${
+                message.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                message.type === 'error' ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
+            }`}>
+                <span>{message.text}</span>
+                <button 
+                    onClick={() => setMessage(null)}
+                    className="ml-3 text-sm hover:bg-opacity-20 hover:bg-black rounded-full h-5 w-5 flex items-center justify-center"
+                >
+                    ×
+                </button>
+            </div>
+        );
+    };
+
     if (isLoading) {
         return <div className="h-full w-full flex items-center justify-center">
             <ProcessIndicator />
@@ -128,6 +159,7 @@ const Layout = () => {
                             </div>
                         </div>
                     </div>
+                    <MessageDisplay />
                 </GlobalModalContext.Provider>
             </MessageContext.Provider>
         </AuthContext.Provider>

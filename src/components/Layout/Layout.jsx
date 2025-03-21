@@ -29,6 +29,17 @@ const Layout = () => {
         const checkAuth = async () => {
             try {
                 const isAuthenticated = auth.isLoggedIn();
+                const refreshTokenData = get('mc_refresh');
+                const currentTime = Math.floor(Date.now() / 1000);
+
+                // Check if token is expired
+                if (refreshTokenData && refreshTokenData.expiry && currentTime > refreshTokenData.expiry) {
+                    auth.logout();
+                    setIsLoggedIn(false);
+                    navigate('/login', { replace: true, state: { sessionExpired: true } });
+                    return;
+                }
+
                 setIsLoggedIn(isAuthenticated);
                 if (!isAuthenticated) {
                     navigate('/login', { replace: true });
@@ -37,23 +48,37 @@ const Layout = () => {
 
                 // Check token expiration periodically
                 const checkTokenExpiration = setInterval(() => {
-                    const refreshTokenData = get('mc_refresh');
-                    if (refreshTokenData && refreshTokenData.expiry) {
+                    const currentRefreshToken = get('mc_refresh');
+                    if (currentRefreshToken && currentRefreshToken.expiry) {
                         const currentTime = Math.floor(Date.now() / 1000);
-                        if (currentTime > refreshTokenData.expiry) {
+                        if (currentTime > currentRefreshToken.expiry) {
                             clearInterval(checkTokenExpiration);
-                            // Show message and delay redirect
+                            auth.logout();
+                            setIsLoggedIn(false);
                             setMessage({ type: 'info', text: 'Your session has expired. You will be redirected to login.' });
-                            setTimeout(() => {
-                                auth.logout();
-                                setIsLoggedIn(false);
-                                navigate('/login', { replace: true, state: { sessionExpired: true } });
-                            }, 3000); // 3 second delay
+                            navigate('/login', { replace: true, state: { sessionExpired: true } });
                         }
                     }
                 }, 60000); // Check every minute
 
-                return () => clearInterval(checkTokenExpiration);
+                // Add window focus event listener
+                const handleWindowFocus = () => {
+                    const refreshTokenData = get('mc_refresh');
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    
+                    if (refreshTokenData && refreshTokenData.expiry && currentTime > refreshTokenData.expiry) {
+                        auth.logout();
+                        setIsLoggedIn(false);
+                        navigate('/login', { replace: true, state: { sessionExpired: true } });
+                    }
+                };
+
+                window.addEventListener('focus', handleWindowFocus);
+
+                return () => {
+                    clearInterval(checkTokenExpiration);
+                    window.removeEventListener('focus', handleWindowFocus);
+                };
             } catch (error) {
                 console.error('Auth check failed:', error);
                 navigate('/login', { replace: true });

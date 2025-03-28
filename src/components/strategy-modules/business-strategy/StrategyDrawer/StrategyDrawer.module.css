@@ -1,0 +1,14 @@
+.StrategyDrawer {}
+
+.slide-in {
+    animation: slide-in .3s;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(600px);
+    }
+    to {
+        transform: translateX(0);
+    }
+}

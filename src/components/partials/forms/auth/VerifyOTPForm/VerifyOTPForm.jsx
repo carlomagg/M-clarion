@@ -95,7 +95,7 @@ function VerifyOTPForm({ setOtpVerified, setAuthResponse = () => {}, form, type 
             setResendingOTP(true);
             let data = {email: form.email}
             try {
-                await axios.post('clarion_users/resend_otp/', data);
+                await axios.post('clarion_users/resend_login_otp/', data);
                 setSeconds(WAIT_PERIOD);
             } catch (error) {
                 setVerificationError(error.response.data.error)

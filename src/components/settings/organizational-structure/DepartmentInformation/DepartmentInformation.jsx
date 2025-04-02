@@ -314,10 +314,10 @@ function SelectDivisionDropdown({divisions, selected = null, onSelect}) {
     return <SelectDropdown items={items} name={'division_id'} selected={selected} onSelect={onSelect} label={'Parent Division'} placeholder={'Select division'} isCollapsed={isCollapsed} onToggleCollpase={setIsCollapsed} />
 }
 
-function SelectSubsidiaryDropdown({subsidiaries, selected = null, onSelect}) {
+function SelectSubsidiaryDropdown({subsidiaries = [], selected = null, onSelect}) {
     const [isCollapsed, setIsCollapsed] = useState(true);
 
-    const items = subsidiaries.map(subsidiary => ({id: subsidiary.id, text: subsidiary.name}));
+    const items = Array.isArray(subsidiaries) ? subsidiaries.map(subsidiary => ({id: subsidiary.id, text: subsidiary.name})) : [];
 
     return <SelectDropdown items={items} name={'subsidiary_id'} selected={selected} onSelect={onSelect} label={'Parent Subsidiary'} placeholder={'Select subsidiary'} isCollapsed={isCollapsed} onToggleCollpase={setIsCollapsed} />
 }

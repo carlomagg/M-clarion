@@ -18,12 +18,10 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm }) => {
     statusName: "",
     startDate: "",
     endDate: "",
-    owner: "",
+    owner_ids: [],
     note: "",
     control: "",
   });
-
-  const [selectedStatus, setSelectedStatus] = useState("");
 
   const [selectedOwners, setSelectedOwners] = useState([]);
 
@@ -70,7 +68,7 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm }) => {
       status: formDetails.statusName,
       startDate: formDetails.startDate,
       endDate: formDetails.endDate,
-      owner: formDetails.owner,
+      owners: selectedOwners.map(owner => owner.text),
       description: formDetails.description,
       note: formDetails.note,
       control: formDetails.control,
@@ -81,7 +79,7 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm }) => {
     const contentData = {
       name: formDetails.taskName,
       description: formDetails.description,
-      owner: parseInt(formDetails.owner),
+      owner_ids: selectedOwners.map(owner => owner.id),
       tat: formDetails.turnAroundTime,
       control_measure: formDetails.control,
       status: parseInt(formDetails.statusName),
@@ -145,32 +143,17 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm }) => {
           </div>
         </div>
         <div className="flex gap-3 pt-6">
-          {/* <MultiSelectorDropdown
+          <div className="ml-7 ">
+            <p className="">Owners</p>
+          </div>
+          <MultiSelectorDropdown
             allItems={users}
             selectedItems={selectedOwners}
             onSetItems={setSelectedOwners}
             placeholder={"Select owner (one or more)"}
             label={"Owners"}
             name={"owner_ids"}
-            value={formDetails.owner_ids}
-            onChange={(e) => handleInputChange(e)}
-          /> */}
-          <div className="ml-7 ">
-            <p className="">Owners</p>
-          </div>
-          <select
-            className="p-2 w-1/2 border-b px-2 py-2 border-border-gray  "
-            value={formDetails.owner}
-            name="owner"
-            placeholder=" Select owner"
-            onChange={(e) => handleInputChange(e)}
-          >
-            <option value="">owner 1</option>
-            <option value="Completed">owner 2</option>
-            <option value="Draft">owner 3</option>
-            <option value="Pending">owner 4</option>
-          </select>
-
+          />
           <div className="ml-7 ">
             <p className="">Status</p>
           </div>

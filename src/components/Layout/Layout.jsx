@@ -36,7 +36,7 @@ const Layout = () => {
                 if (refreshTokenData && refreshTokenData.expiry && currentTime > refreshTokenData.expiry) {
                     auth.logout();
                     setIsLoggedIn(false);
-                    navigate('/login', { replace: true, state: { sessionExpired: true } });
+                    navigate('/login', { replace: true });
                     return;
                 }
 
@@ -55,8 +55,7 @@ const Layout = () => {
                             clearInterval(checkTokenExpiration);
                             auth.logout();
                             setIsLoggedIn(false);
-                            setMessage({ type: 'info', text: 'Your session has expired. You will be redirected to login.' });
-                            navigate('/login', { replace: true, state: { sessionExpired: true } });
+                            navigate('/login', { replace: true });
                         }
                     }
                 }, 60000); // Check every minute
@@ -69,7 +68,7 @@ const Layout = () => {
                     if (refreshTokenData && refreshTokenData.expiry && currentTime > refreshTokenData.expiry) {
                         auth.logout();
                         setIsLoggedIn(false);
-                        navigate('/login', { replace: true, state: { sessionExpired: true } });
+                        navigate('/login', { replace: true });
                     }
                 };
 

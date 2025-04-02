@@ -17,23 +17,39 @@ const ProcessAssignment = () => {
   const [priority, setPriority] = useState("High");
   const [formData, setFormData] = useState({ description: "INitiall desc" });
   const [selectedOwners, setSelectedOwners] = useState([]);
+  const [selectedLicenses, setSelectedLicenses] = useState([]);
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
 
-  const { processTypeTitle, processType } = useSelector(
-    (state) => state.global
-  );
+  const { processTypeTitle, processType } = useSelector((state) => state.global);
   const [activeTab, setActiveTab] = useState("Process Tab");
 
   const tabToRender = () => {
     switch (activeTab) {
       case "Process Tab":
-        return <ProcessTab setActiveTab={setActiveTab} />;
+        return <ProcessTab 
+          setActiveTab={setActiveTab} 
+          selectedLicenses={selectedLicenses}
+          setSelectedLicenses={setSelectedLicenses}
+          selectedPermissions={selectedPermissions}
+          setSelectedPermissions={setSelectedPermissions}
+        />;
       case "Task And Workflow":
-        return <TaskAndWorkflow setActiveTab={setActiveTab} />;
+        return <TaskAndWorkflow 
+          setActiveTab={setActiveTab}
+          selectedLicenses={selectedLicenses}
+          selectedPermissions={selectedPermissions}
+        />;
       case "Flow Chart":
-        return <FlowChart setActiveTab={setActiveTab} />;
+        return <FlowChart 
+          setActiveTab={setActiveTab}
+          selectedLicenses={selectedLicenses}
+          selectedPermissions={selectedPermissions}
+        />;
       case "Review":
-        return <Review />;
-
+        return <Review 
+          selectedLicenses={selectedLicenses}
+          selectedPermissions={selectedPermissions}
+        />;
       default:
         return null;
     }

@@ -75,7 +75,7 @@ export default function SupportModal({ onClose }) {
                 </div>
 
                 {/* Contact Numbers */}
-                {[1, 2, 3, 4].map((_, index) => (
+                {[1, 2].map((_, index) => (
                     <div key={index} className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center gap-3 border-b border-gray-100">
                         <div className="w-6 h-6 flex items-center justify-center">
                             <Phone size={18} className="text-[#FF69B4]" />

@@ -45,14 +45,16 @@ function VerifyOTPForm({ setOtpVerified, setAuthResponse = () => {}, form, type 
         setStatus('submitting');
 
         let data = {
-            otp, email: form.email
+            otp, 
+            email: form.email
         }
+        
         try {
             const endpoint = type === 'forgot_password' 
-                ? 'clarion_users/verify_forgot_password_otp/'
-                : 'clarion_users/verify_login_otp/';
+                ? 'verify_forgot_password_otp'
+                : 'verify_login_otp';
                 
-            const response = await axios.post(endpoint, data);
+            const response = await axios.post(`clarion_users/${endpoint}/`, data);
 
             verificationSuccessful();
             if (type === 'login') setAuthResponse(response.data);
@@ -98,7 +100,7 @@ function VerifyOTPForm({ setOtpVerified, setAuthResponse = () => {}, form, type 
                 await axios.post('clarion_users/resend_login_otp/', data);
                 setSeconds(WAIT_PERIOD);
             } catch (error) {
-                setVerificationError(error.response.data.error)
+                setVerificationError(error.response?.data?.error || 'Failed to resend OTP')
             } finally {
                 setResendingOTP(false);
             }

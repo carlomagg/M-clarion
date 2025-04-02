@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { IoIosArrowDown, IoIosArrowForward } from 'react-icons/io';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import { useQuery } from '@tanstack/react-query';
-import { permissionsOptions } from '../../../../../queries/permissions/permissions-queries';
+import { permissionsOptions } from '../../../../../queries/permissions-queries';
+import { userSourcesOptions } from '../../../../../queries/users-queries';
 import { MODULES } from '../../../../../utils/consts';
 import styles from './AddNewUserReview.module.css';
 
@@ -13,82 +14,67 @@ const LICENSE_TYPES = {
 };
 
 function AddNewUserReview({ formData, onBack, onSubmit, isEditMode, supervisors, subsidiaries }) {
-    const [expandedSections, setExpandedSections] = useState({});
     const [showPassword, setShowPassword] = useState(false);
+    const [showPermissions, setShowPermissions] = useState(false);
+    const [showLicenses, setShowLicenses] = useState(false);
+    const [expandedSections, setExpandedSections] = useState({});
 
-    // Fetch permissions from API
-    const { data: apiPermissions, isLoading: permissionsLoading } = useQuery(permissionsOptions());
+    const { data: permissions = {}, isLoading: isLoadingPermissions } = useQuery(permissionsOptions());
+    const { data: sources = [], isLoading: isLoadingSources } = useQuery(userSourcesOptions());
 
-    const toggleSection = (sectionId) => {
+    // Helper functions
+    const getModuleLicenses = (moduleId) => {
+        return formData.user_licenses?.filter(license => license.module_id === moduleId) || [];
+    };
+
+    const hasModuleLicenses = (moduleId) => {
+        return getModuleLicenses(moduleId).length > 0;
+    };
+
+    const getSelectedModulePermissions = (moduleId) => {
+        // Get the appropriate permissions array based on module
+        let modulePermissions = [];
+        if (moduleId === MODULES.RISK_MANAGEMENT.id) {
+            modulePermissions = permissions.risk || [];
+        } else {
+            modulePermissions = permissions.user || [];
+        }
+
+        return modulePermissions.filter(perm => 
+            formData.user_permissions?.permission_ids?.includes(perm.permission_id)
+        ) || [];
+    };
+
+    const toggleSection = (moduleId) => {
         setExpandedSections(prev => ({
             ...prev,
-            [sectionId]: !prev[sectionId]
+            [moduleId]: !prev[moduleId]
         }));
     };
 
-    // Get all licenses for a module
-    const getModuleLicenses = (moduleId) => {
-        if (!formData.user_licenses) return [];
-        
-        return formData.user_licenses
-            .filter(license => parseInt(license.module_id) === moduleId)
-            .map(license => ({
-                ...license,
-                module_id: parseInt(license.module_id),
-                license_type_id: parseInt(license.license_type_id)
-            }))
-            .filter(license => !isNaN(license.module_id) && !isNaN(license.license_type_id));
-    };
+    // Find the selected source - improved source lookup
+    const selectedSource = sources.find(source => 
+        source.id?.toString() === formData.user_details.source_id?.toString()
+    )?.name || 'Manual';  // Default to 'Manual' if not found
 
-    // Check if module has any licenses
-    const hasModuleLicenses = (moduleId) => {
-        if (!formData.user_licenses) return false;
-        
-        return formData.user_licenses.some(license => 
-            parseInt(license.module_id) === moduleId
-        );
-    };
+    // Process subsidiaries to handle both nested and flat data structures
+    const subsidiariesList = Array.isArray(subsidiaries) ? subsidiaries : (subsidiaries?.subsidiaries || []);
+    
+    // Find the selected subsidiary
+    const selectedSubsidiary = subsidiariesList.find(sub => 
+        (sub.id || sub.subsidiary_id) === formData.user_details.subsidiary_id
+    )?.name || 'Not specified';
 
-    // Get module permissions
-    const getModulePermissions = (moduleId) => {
-        if (!apiPermissions) return [];
+    // Find the selected supervisor
+    const selectedSupervisor = supervisors?.find(sup => 
+        sup.user_id === parseInt(formData.user_details.supervisor_id) ||
+        sup.id === parseInt(formData.user_details.supervisor_id)
+    );
+    const supervisorName = selectedSupervisor ? 
+        `${selectedSupervisor.firstname || selectedSupervisor.first_name} ${selectedSupervisor.lastname || selectedSupervisor.last_name}` :
+        'Not specified';
 
-        try {
-            const { user: userPermissions = [], risk: riskPermissions = [] } = apiPermissions;
-            const module = Object.values(MODULES).find(m => m.id === moduleId);
-            
-            if (!module) return [];
-
-            // Combine permissions based on module type
-            const allPermissions = module.key === 'risk'
-                ? [...userPermissions, ...riskPermissions]
-                : userPermissions;
-
-            return allPermissions.map(p => ({
-                ...p,
-                permission_id: parseInt(p.permission_id)
-            })).filter(p => p.permission_id && !isNaN(p.permission_id));
-        } catch (error) {
-            console.error('Error processing module permissions:', error);
-            return [];
-        }
-    };
-
-    // Get selected permissions for a module
-    const getSelectedModulePermissions = (moduleId) => {
-        if (!formData.user_permissions?.permission_ids) return [];
-        
-        const modulePermissions = getModulePermissions(moduleId);
-        const selectedIds = formData.user_permissions.permission_ids
-            .map(id => parseInt(id))
-            .filter(id => !isNaN(id));
-
-        return modulePermissions.filter(
-            permission => selectedIds.includes(permission.permission_id)
-        );
-    };
-
-    if (permissionsLoading) {
+    if (isLoadingPermissions || isLoadingSources) {
         return <div className="flex justify-center items-center p-4">Loading...</div>;
     }
 
@@ -98,6 +84,10 @@ function AddNewUserReview({ formData, onBack, onSubmit, isEditMode, supervisors,
             <div className="p-4 border border-gray-200 rounded-lg">
                 <h3 className="text-sm font-medium mb-4">User Details</h3>
                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <p className="text-sm text-gray-500">User Source</p>
+                        <p className="text-sm">{selectedSource}</p>
+                    </div>
                     <div>
                         <p className="text-sm text-gray-500">First Name</p>
                         <p className="text-sm">{formData.user_details.first_name}</p>
@@ -128,19 +118,11 @@ function AddNewUserReview({ formData, onBack, onSubmit, isEditMode, supervisors,
                     )}
                     <div>
                         <p className="text-sm text-gray-500">Subsidiary</p>
-                        <p className="text-sm">
-                            {subsidiaries?.subsidiaries?.find(s => s.id === formData.user_details.subsidiary_id)?.name || 'N/A'}
-                        </p>
+                        <p className="text-sm">{selectedSubsidiary}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Supervisor</p>
-                        <p className="text-sm">
-                            {supervisors?.find(s => s.user_id === parseInt(formData.user_details.supervisor_id))?.firstname || 'N/A'}
-                        </p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500">Password Change Required</p>
-                        <p className="text-sm">{formData.user_details.require_password_change ? "Yes" : "No"}</p>
+                        <p className="text-sm">{supervisorName}</p>
                     </div>
                 </div>
             </div>

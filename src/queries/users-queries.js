@@ -20,23 +20,41 @@ export async function fetchUsers() {
     }
 }
 
-export async function fetchUser({queryKey}) {
-    const [_, userId] = queryKey;
+export const fetchUser = async ({ queryKey }) => {
     try {
+        const [_, userId] = queryKey;
         console.log('Fetching user...', userId);
         const response = await axios.get(`clarion_users/users/${userId}/`);
         console.log('User response:', response.data);
-        return response.data;
+        
+        // Ensure licenses are properly formatted
+        const userData = {
+            ...response.data,
+            licenses: Array.isArray(response.data.licenses) 
+                ? response.data.licenses.map(license => ({
+                    module_id: parseInt(license.module_id, 10),
+                    license_type_id: parseInt(license.license_type_id, 10)
+                }))
+                : Array.isArray(response.data.user_licenses)
+                    ? response.data.user_licenses.map(license => ({
+                        module_id: parseInt(license.module_id, 10),
+                        license_type_id: parseInt(license.license_type_id, 10)
+                    }))
+                    : Array.isArray(response.data.user_license)
+                        ? response.data.user_license.map(license => ({
+                            module_id: parseInt(license.module_id, 10),
+                            license_type_id: parseInt(license.license_type_id, 10)
+                        }))
+                        : []
+        };
+        
+        console.log('Processed user data with licenses:', userData);
+        return userData;
     } catch (error) {
-        console.error('fetchUser error:', error.message || error);
-        if (error.response) {
-            console.error('Error response:', error.response.data);
-            console.error('Error status:', error.response.status);
-            console.error('Error headers:', error.response.headers);
-        }
+        console.error('Error fetching user:', error);
         throw error;
     }
-}
+};
 
 export async function fetchSubsidiaries() {
     try {
@@ -86,7 +104,10 @@ async function addUser({formData}) {
                 password: formData.user_details.password?.trim(),
                 supervisor_id: formData.user_details.supervisor_id ? String(formData.user_details.supervisor_id) : '',
                 subsidiary_id: formData.user_details.subsidiary_id ? parseInt(formData.user_details.subsidiary_id, 10) : null,
-                require_password_change: Boolean(formData.user_details.require_password_change)
+                require_password_change: Boolean(formData.user_details.require_password_change),
+                send_login_details: true,
+                automatically_create_password: false,
+                user_source_id: parseInt(formData.user_details.source_id || formData.user_details.user_source_id, 10)
             },
             user_licenses: Array.isArray(formData.user_licenses) ? formData.user_licenses : [],
             user_permissions: {
@@ -137,6 +158,7 @@ async function updateUserProfile({userId, formData, isQueueUser}) {
     try {
         console.log('Updating user profile - Raw formData:', JSON.stringify(formData, null, 2));
         console.log('Is queue user:', isQueueUser);
+        console.log('User ID:', userId);
         
         // Helper function to safely parse integers
         const safeParseInt = (value) => {
@@ -144,6 +166,68 @@ async function updateUserProfile({userId, formData, isQueueUser}) {
             const parsed = parseInt(value, 10);
             return isNaN(parsed) ? null : parsed;
         };
+
+        // Helper function to safely handle supervisor_id
+        const formatSupervisorId = (value) => {
+            if (!value || value === '') return null; // Return null for empty values
+            const strValue = String(value).replace(/^sup_/, ''); // Remove 'sup_' prefix if present
+            return strValue || null; // Return null if empty string after processing
+        };
+
+        // Fetch current user data if licenses or permissions are not provided
+        let currentUserData = null;
+        if (!formData.user_licenses?.length || !formData.user_permissions?.permission_ids?.length) {
+            try {
+                console.log('Fetching current user data for ID:', userId);
+                const response = await axios.get(`clarion_users/users/${userId}/`);
+                currentUserData = response.data;
+                console.log('Current user data:', JSON.stringify(currentUserData, null, 2));
+                
+                // If licenses are not provided, use current licenses
+                if (!formData.user_licenses?.length) {
+                    console.log('No licenses provided, using current licenses');
+                    // Handle all possible license formats
+                    formData.user_licenses = Array.isArray(currentUserData.licenses) 
+                        ? currentUserData.licenses.map(license => ({
+                            module_id: parseInt(license.module_id, 10),
+                            license_type_id: parseInt(license.license_type_id, 10)
+                        }))
+                        : Array.isArray(currentUserData.user_licenses)
+                            ? currentUserData.user_licenses.map(license => ({
+                                module_id: parseInt(license.module_id, 10),
+                                license_type_id: parseInt(license.license_type_id, 10)
+                            }))
+                            : Array.isArray(currentUserData.user_license)
+                                ? currentUserData.user_license.map(license => ({
+                                    module_id: parseInt(license.module_id, 10),
+                                    license_type_id: parseInt(license.license_type_id, 10)
+                                }))
+                                : [];
+                    console.log('Updated licenses:', JSON.stringify(formData.user_licenses, null, 2));
+                }
+                
+                // If permissions are not provided, use current permissions
+                if (!formData.user_permissions?.permission_ids?.length) {
+                    console.log('No permissions provided, using current permissions');
+                    // Handle both array and object formats
+                    formData.user_permissions = {
+                        set_as_admin: currentUserData.is_admin || false,
+                        permission_ids: Array.isArray(currentUserData.permission_ids) 
+                            ? currentUserData.permission_ids
+                            : Array.isArray(currentUserData.permissions)
+                                ? currentUserData.permissions.map(perm => perm.permission_id)
+                                : []
+                    };
+                    console.log('Updated permissions:', JSON.stringify(formData.user_permissions, null, 2));
+                }
+            } catch (error) {
+                console.error('Failed to fetch current user data:', error);
+                console.error('Error details:', error.response?.data);
+                // Use empty arrays if fetch fails
+                formData.user_licenses = formData.user_licenses || [];
+                formData.user_permissions = formData.user_permissions || { permission_ids: [] };
+            }
+        }
         
         // Ensure required fields and data types match API requirements
         const payload = {
@@ -151,9 +235,12 @@ async function updateUserProfile({userId, formData, isQueueUser}) {
                 first_name: formData.user_details.first_name?.trim(),
                 last_name: formData.user_details.last_name?.trim(),
                 email_address: formData.user_details.email_address?.trim(),
-                supervisor_id: formData.user_details.supervisor_id ? String(formData.user_details.supervisor_id) : '',
+                supervisor_id: formatSupervisorId(formData.user_details.supervisor_id),
                 subsidiary_id: safeParseInt(formData.user_details.subsidiary_id),
-                require_password_change: Boolean(formData.user_details.require_password_change)
+                require_password_change: Boolean(formData.user_details.require_password_change),
+                send_login_details: true,
+                automatically_create_password: false,
+                user_source_id: safeParseInt(formData.user_details.source_id || formData.user_details.user_source_id)
             },
             user_licenses: Array.isArray(formData.user_licenses) ? formData.user_licenses.map(license => ({
                 module_id: safeParseInt(license.module_id),
@@ -168,17 +255,16 @@ async function updateUserProfile({userId, formData, isQueueUser}) {
             }
         };
 
+        console.log('Formatted payload:', JSON.stringify(payload, null, 2));
+
         // Only include password if it's provided
         if (formData.user_details.password?.trim()) {
             payload.user_details.password = formData.user_details.password.trim();
         }
-
-        console.log('User update - Formatted payload:', JSON.stringify(payload, null, 2));
         
         let endpoint;
         let finalPayload;
         let method;
-
         if (isQueueUser) {
             // For queue users, use the multi-register endpoint
             endpoint = 'clarion_users/register/multi/';
@@ -188,9 +274,12 @@ async function updateUserProfile({userId, formData, isQueueUser}) {
                     firstname: payload.user_details.first_name,
                     lastname: payload.user_details.last_name,
                     email: payload.user_details.email_address,
-                    supervisor_id: payload.user_details.supervisor_id || null,
+                    supervisor_id: formatSupervisorId(payload.user_details.supervisor_id),
                     subsidiary_id: payload.user_details.subsidiary_id || null,
                     require_password_change: true,
+                    user_source_id: payload.user_details.user_source_id,
+                    send_login_details: true,
+                    automatically_create_password: false,
                     licenses: payload.user_licenses.map(license => ({
                         module_id: license.module_id,
                         license_type_id: license.license_type_id
@@ -207,41 +296,25 @@ async function updateUserProfile({userId, formData, isQueueUser}) {
             finalPayload = {
                 user_details: {
                     ...payload.user_details,
-                    // Ensure user_id is a valid integer
                     user_id: safeParseInt(userId)
                 },
-                user_licenses: payload.user_licenses.map(license => ({
-                    module_id: license.module_id,
-                    license_type_id: license.license_type_id
-                })),
-                user_permissions: {
-                    set_as_admin: payload.user_permissions.set_as_admin,
-                    permission_ids: payload.user_permissions.permission_ids
-                }
+                user_licenses: payload.user_licenses,
+                user_permissions: payload.user_permissions
             };
 
             // Remove any null values from user_details
             Object.keys(finalPayload.user_details).forEach(key => {
-                if (finalPayload.user_details[key] === null) {
+                if (finalPayload.user_details[key] === null && key !== 'supervisor_id') {
                     delete finalPayload.user_details[key];
                 }
             });
         }
         
         console.log(`Using ${method.toUpperCase()} request to endpoint:`, endpoint);
-        console.log('Final payload:', finalPayload);
+        console.log('Final payload:', JSON.stringify(finalPayload, null, 2));
         
         const response = await axios[method](endpoint, finalPayload);
         console.log('User update - Success response:', response.data);
-        
-        // Check if the update was actually successful
-        if (isQueueUser && response.data) {
-            if (response.data.created_users?.length === 0 && 
-                response.data.duplicate_emails?.length === 0 && 
-                response.data.invalid_users?.length === 0) {
-                throw new Error('Update failed - no changes were applied');
-            }
-        }
         
         return response.data;
     } catch (error) {
@@ -477,4 +550,17 @@ export function useChangePassword(callbacks) {
         mutationFn: changePassword,
         ...callbacks
     })
+}
+
+// query functions
+export async function fetchUserSources() {
+    const response = await axios.get('clarion_users/user-source/');
+    return response.data.sources;
+}
+
+export function userSourcesOptions() {
+    return {
+        queryKey: ['user-sources'],
+        queryFn: fetchUserSources
+    }
 }

@@ -18,48 +18,104 @@ const LicenseRadio = React.memo(({ moduleId, licenseTypeId, checked, onChange })
     );
 });
 
-function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack }) {
+function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack, userData = null }) {
     const [permissions, setPermissions] = useState([]);
+    const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+    
+    const toggleGroupCollapse = useCallback((groupId) => {
+        setCollapsedGroups(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(groupId)) {
+                newSet.delete(groupId);
+            } else {
+                newSet.add(groupId);
+            }
+            return newSet;
+        });
+    }, []);
+
+    const areAllPermissionsSelected = useCallback((permissions) => {
+        return permissions.every(permission => 
+            formData.user_permissions.permission_ids.includes(parseInt(permission.permission_id, 10))
+        );
+    }, [formData.user_permissions.permission_ids]);
+
+    const handleSelectAllPermissions = useCallback((permissions) => {
+        setFormData(prev => {
+            const currentPermissionIds = new Set(prev.user_permissions.permission_ids);
+            const allSelected = areAllPermissionsSelected(permissions);
+
+            permissions.forEach(permission => {
+                const permissionId = parseInt(permission.permission_id, 10);
+                if (allSelected) {
+                    currentPermissionIds.delete(permissionId);
+                } else {
+                    currentPermissionIds.add(permissionId);
+                }
+            });
+
+            return {
+                ...prev,
+                user_permissions: {
+                    ...prev.user_permissions,
+                    permission_ids: Array.from(currentPermissionIds)
+                }
+            };
+        });
+    }, [areAllPermissionsSelected]);
+
+    const handlePermissionChange = useCallback((permissionId) => {
+        setFormData(prev => {
+            const currentPermissionIds = new Set(prev.user_permissions.permission_ids);
+            
+            if (currentPermissionIds.has(permissionId)) {
+                currentPermissionIds.delete(permissionId);
+            } else {
+                currentPermissionIds.add(permissionId);
+            }
+
+            return {
+                ...prev,
+                user_permissions: {
+                    ...prev.user_permissions,
+                    permission_ids: Array.from(currentPermissionIds)
+                }
+            };
+        });
+    }, []);
+
+    // Initialize form data with user data when in edit mode
+    useEffect(() => {
+        if (userData) {
+            setFormData(prev => ({
+                ...prev,
+                user_licenses: [...(userData.licenses || [])],
+                user_permissions: {
+                    permission_ids: [...(userData.permissions?.map(p => p.permission_id) || [])]
+                }
+            }));
+        }
+    }, [userData, setFormData]);
 
     // Fetch permissions and modules using react-query
     const { data: apiPermissions, isLoading: permissionsLoading } = useQuery(permissionsOptions());
     const { data: modules, isLoading: modulesLoading } = useQuery(modulesOptions());
 
-    // Debug logs for API responses
-    useEffect(() => {
-        if (modules) {
-            console.log('Modules data:', modules);
-        }
-    }, [modules]);
-
-    useEffect(() => {
-        if (apiPermissions) {
-            console.log('Raw API Permissions:', apiPermissions);
-        }
-    }, [apiPermissions]);
-
     // Initialize permissions when data is loaded
     useEffect(() => {
         if (apiPermissions && modules) {
-            console.log('Raw API Permissions:', apiPermissions);
-            console.log('MODULES:', MODULES);
-            console.log('Current modules:', modules);
-            
             // Create permissions array dynamically based on modules
             const newPermissions = modules.map(module => {
                 const moduleId = parseInt(module.module_id, 10);
-                console.log(`Processing module: ${module.module_name} (ID: ${moduleId})`);
-                
                 let modulePermissions = [];
                 const userPermissions = apiPermissions.user || [];
 
                 // Map the module to the correct type based on MODULES constant
                 if (moduleId === MODULES.RISK_MANAGEMENT.id) {
-                    // For Risk Management, include risk permissions and user permissions
                     const riskPermissions = apiPermissions.risk || [];
                     modulePermissions = [
                         {
-                            title: "Core Permissions",
+                            title: "",
                             permissions: riskPermissions
                         },
                         {
@@ -68,7 +124,6 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack }) 
                         }
                     ];
                 } else if (moduleId === MODULES.PROCESS_MANAGEMENT.id) {
-                    // For Process Management, only include user permissions for now
                     modulePermissions = [
                         {
                             title: "User Management Permissions",
@@ -77,18 +132,15 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack }) 
                     ];
                 }
 
-                const section = {
+                return {
                     id: `module-permissions-${moduleId}`,
-                    name: `${module.module_name} Module Permissions`,
+                    name: `${module.module_name}`,
                     module_id: moduleId,
                     permissionGroups: modulePermissions,
                     type: moduleId === MODULES.RISK_MANAGEMENT.id ? 'risk' : 'user'
                 };
-                console.log('Created section:', section);
-                return section;
             });
             
-            console.log('Final permissions structure:', newPermissions);
             setPermissions(newPermissions);
         }
     }, [apiPermissions, modules]);
@@ -96,80 +148,43 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack }) 
     const handleLicenseChange = useCallback((moduleId, licenseTypeId) => {
         moduleId = parseInt(moduleId, 10);
         licenseTypeId = parseInt(licenseTypeId, 10);
-
-        console.log('Handling license change:', { moduleId, licenseTypeId });
-
-        setFormData(draft => {
-            // Remove all licenses first
-            draft.user_licenses = [];
-            
-            // Add only the selected license
-            draft.user_licenses.push({
-                module_id: moduleId,
-                license_type_id: licenseTypeId
-            });
-
-            // Clear permissions that don't belong to the selected module
-            const currentModulePermissions = permissions.find(section => section.module_id === moduleId);
-            console.log('Current module permissions:', currentModulePermissions);
-
-            if (currentModulePermissions) {
-                const validPermissionIds = currentModulePermissions.permissionGroups.reduce((acc, group) => acc.concat(group.permissions.map(p => p.permission_id)), []);
-                console.log('Valid permission IDs:', validPermissionIds);
-                draft.user_permissions.permission_ids = draft.user_permissions.permission_ids.filter(id => 
-                    validPermissionIds.includes(id)
-                );
-            }
-        });
-    }, [setFormData, permissions]);
-
-    const handlePermissionChange = useCallback((permissionId) => {
-        const numericId = parseInt(permissionId, 10);
-        console.log('Handling permission change:', { permissionId: numericId });
         
-        setFormData(draft => {
-            const permissions = draft.user_permissions.permission_ids;
-            const index = permissions.indexOf(numericId);
-            
-            if (index === -1) {
-                permissions.push(numericId);
-            } else {
-                permissions.splice(index, 1);
-            }
-        });
-    }, [setFormData]);
+        setFormData(prev => {
+            // Get all licenses except those for the current module
+            const otherModuleLicenses = prev.user_licenses.filter(
+                license => license.module_id !== moduleId
+            );
 
-    const handleSelectAllPermissions = useCallback((permissions) => {
-        const permissionIds = permissions.map(p => parseInt(p.permission_id, 10));
-        
-        setFormData(draft => {
-            const currentPermissions = new Set(draft.user_permissions.permission_ids);
-            const allSelected = permissionIds.every(id => currentPermissions.has(id));
-            
-            if (allSelected) {
-                // Deselect all permissions for this module
-                draft.user_permissions.permission_ids = draft.user_permissions.permission_ids
-                    .filter(id => !permissionIds.includes(id));
-            } else {
-                // Select all permissions for this module
-                const newPermissions = new Set([...draft.user_permissions.permission_ids]);
-                permissionIds.forEach(id => newPermissions.add(id));
-                draft.user_permissions.permission_ids = Array.from(newPermissions);
-            }
-        });
-    }, [setFormData]);
+            // Check if the clicked license type is already selected
+            const isCurrentlySelected = prev.user_licenses.some(
+                license => license.module_id === moduleId && license.license_type_id === licenseTypeId
+            );
 
-    const areAllPermissionsSelected = useCallback((permissions) => {
-        const permissionIds = permissions.map(p => parseInt(p.permission_id, 10));
-        return permissionIds.every(id => formData.user_permissions.permission_ids.includes(id));
-    }, [formData.user_permissions.permission_ids]);
+            // If it's not currently selected, add it. If it is selected, don't add any license for this module
+            const newLicenses = isCurrentlySelected 
+                ? otherModuleLicenses 
+                : [...otherModuleLicenses, { module_id: moduleId, license_type_id: licenseTypeId }];
+
+            return {
+                ...prev,
+                user_licenses: newLicenses
+            };
+        });
+    }, []);
+
+    // Cache module selection status
+    const selectedModules = useMemo(() => {
+        const selected = new Set();
+        formData.user_licenses.forEach(license => {
+            selected.add(license.module_id);
+        });
+        return selected;
+    }, [formData.user_licenses]);
 
     const isModuleSelected = useCallback((moduleId) => {
         moduleId = parseInt(moduleId, 10);
-        const isSelected = formData.user_licenses.some(license => license.module_id === moduleId);
-        console.log(`Checking if module ${moduleId} is selected:`, isSelected, 'Current licenses:', formData.user_licenses);
-        return isSelected;
-    }, [formData.user_licenses]);
+        return selectedModules.has(moduleId);
+    }, [selectedModules]);
 
     const getSelectedLicenseType = useCallback((moduleId) => {
         moduleId = parseInt(moduleId, 10);
@@ -202,7 +217,7 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack }) 
         <div className="flex flex-col gap-4">
             {/* License Section */}
             <div className="p-4 border rounded-lg bg-white">
-                <h3 className="text-lg font-medium mb-4">Module Licenses</h3>
+                <h3 className="text-lg font-medium mb-4">Licenses</h3>
                 <div className="space-y-4">
                     {modules?.map((module, moduleIndex) => (
                         <div key={`module-license-${module.module_id}-${moduleIndex}`} className="border-b pb-4">
@@ -212,15 +227,19 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack }) 
                             </div>
                             <div className="flex gap-6">
                                 {module.license_type.map((type) => {
-                                    const isSelected = getSelectedLicenseType(module.module_id) === type.type_id;
+                                    const isSelected = formData.user_licenses.some(license => 
+                                        license.module_id === parseInt(module.module_id, 10) && 
+                                        license.license_type_id === parseInt(type.type_id, 10)
+                                    );
+                                    
                                     return (
                                         <div key={`license-type-${module.module_id}-${type.type_id}`} className="flex items-center gap-2">
                                             <input
-                                                type="radio"
+                                                type="checkbox"
                                                 name={`license-${module.module_id}`}
                                                 checked={isSelected}
                                                 onChange={() => handleLicenseChange(module.module_id, type.type_id)}
-                                                className="text-pink-600 focus:ring-pink-500"
+                                                className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
                                             />
                                             <span className="text-sm">
                                                 {type.type} ({type.usage})
@@ -237,78 +256,85 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack }) 
             {/* Permissions Section */}
             <div className="flex flex-col gap-4">
                 {permissions.map((section, sectionIndex) => {
-                    // Only show permissions for selected modules
                     const moduleSelected = isModuleSelected(section.module_id);
-                    console.log(`Checking section visibility for ${section.name}:`, {
-                        moduleId: section.module_id,
-                        isSelected: moduleSelected,
-                        permissions: section.permissionGroups
-                    });
-
-                    if (!moduleSelected) {
-                        return null;
-                    }
+                    if (!moduleSelected) return null;
 
                     return (
-                        <div key={`module-permissions-${section.module_id}-${sectionIndex}`} className="p-4 border rounded-lg bg-white">
-                            <h3 className="text-lg font-medium mb-4">{section.name}</h3>
-                            {section.permissionGroups && section.permissionGroups.length > 0 ? (
-                                <div className="space-y-6">
-                                    {section.permissionGroups.map((group, groupIndex) => {
-                                        const allPermissions = group.permissions || [];
-                                        if (allPermissions.length === 0) return null;
+                        <div key={`module-permissions-${section.module_id}-${sectionIndex}`} className="p-4 border rounded-lg bg-gray-50">
+                            <h3 className="text-lg font-medium mb-4">{section.name} Permissions</h3>
+                            <div className="space-y-6">
+                                {section.permissionGroups && section.permissionGroups.length > 0 ? (
+                                    <div className="space-y-6">
+                                        {section.permissionGroups.map((group, groupIndex) => {
+                                            const allPermissions = group.permissions || [];
+                                            if (allPermissions.length === 0) return null;
+                                            const groupId = `${section.module_id}-${groupIndex}`;
+                                            const isCollapsed = collapsedGroups.has(groupId);
 
-                                        return (
-                                            <div key={`permission-group-${groupIndex}`} className="space-y-4">
-                                                <div className="border-b pb-2">
-                                                    <h4 className="text-md font-medium bg-gray-100 p-2 rounded">{group.title}</h4>
-                                                </div>
-                                                <div className="mb-4 flex items-center gap-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={areAllPermissionsSelected(allPermissions)}
-                                                        onChange={() => handleSelectAllPermissions(allPermissions)}
-                                                        className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
-                                                        id={`select-all-${section.module_id}-${groupIndex}`}
-                                                    />
-                                                    <label 
-                                                        htmlFor={`select-all-${section.module_id}-${groupIndex}`} 
-                                                        className="text-sm font-medium"
+                                            return (
+                                                <div key={`permission-group-${groupIndex}`} className="space-y-4">
+                                                    <div 
+                                                        className="border-b pb-2 cursor-pointer" 
+                                                        onClick={() => toggleGroupCollapse(groupId)}
                                                     >
-                                                        Select All {group.title}
-                                                    </label>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    {allPermissions.map((permission) => {
-                                                        const permissionId = parseInt(permission.permission_id, 10);
-                                                        const isChecked = formData.user_permissions.permission_ids.includes(permissionId);
-                                                        
-                                                        return (
-                                                            <div key={`permission-${permissionId}`} className="flex items-start gap-2">
+                                                        <div className="flex items-center justify-between bg-gray-100 p-2 rounded">
+                                                            <h4 className="text-md font-medium">{group.title}</h4>
+                                                            <div className="transform transition-transform duration-200" style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}>
+                                                                <IoIosArrowDown />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {!isCollapsed && (
+                                                        <>
+                                                            <div className="mb-4 flex items-center gap-2">
                                                                 <input
                                                                     type="checkbox"
-                                                                    checked={isChecked}
-                                                                    onChange={() => handlePermissionChange(permissionId)}
-                                                                    className="mt-1 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
-                                                                    id={`permission-${permissionId}`}
+                                                                    checked={areAllPermissionsSelected(allPermissions)}
+                                                                    onChange={() => handleSelectAllPermissions(allPermissions)}
+                                                                    className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                                                                    id={`select-all-${section.module_id}-${groupIndex}`}
                                                                 />
-                                                                <label htmlFor={`permission-${permissionId}`} className="text-sm">
-                                                                    <div className="font-medium">{permission.name}</div>
-                                                                    {permission.description && (
-                                                                        <div className="text-gray-500">{permission.description}</div>
-                                                                    )}
+                                                                <label 
+                                                                    htmlFor={`select-all-${section.module_id}-${groupIndex}`} 
+                                                                    className="text-sm"
+                                                                >
+                                                                    Select All
                                                                 </label>
                                                             </div>
-                                                        );
-                                                    })}
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                {allPermissions.map((permission) => {
+                                                                    const permissionId = parseInt(permission.permission_id, 10);
+                                                                    const isChecked = formData.user_permissions.permission_ids.includes(permissionId);
+                                                                    
+                                                                    return (
+                                                                        <div key={`permission-${permissionId}`} className="flex items-start gap-2">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={isChecked}
+                                                                                onChange={() => handlePermissionChange(permissionId)}
+                                                                                className="mt-1 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                                                                                id={`permission-${permissionId}`}
+                                                                            />
+                                                                            <label htmlFor={`permission-${permissionId}`} className="text-sm">
+                                                                                <div className="font-medium">{permission.name}</div>
+                                                                                {permission.description && (
+                                                                                    <div className="text-gray-500">{permission.description}</div>
+                                                                                )}
+                                                                            </label>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="text-gray-500">No permissions available for this module.</div>
-                            )}
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="text-gray-500">No permissions available for this module.</div>
+                                )}
+                            </div>
                         </div>
                     );
                 })}

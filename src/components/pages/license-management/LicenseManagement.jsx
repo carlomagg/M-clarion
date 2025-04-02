@@ -27,10 +27,27 @@ function LicenseManagement() {
     const { data: licenses = [], isLoading: licensesLoading } = useQuery(licensesOptions());
 
     const assignLicenseMutation = useAssignLicense({
-        onSuccess: () => {
+        onSuccess: (data, variables) => {
+            // Update both licenses and user data to ensure persistence
             queryClient.invalidateQueries(['licenses']);
+            queryClient.invalidateQueries(['users']);
+            
+            // Update local state
             setSelectedUsers([]);
             setSearchTerm('');
+            
+            // Ensure the user's profile is updated with the new license
+            const userId = variables.userId;
+            queryClient.setQueryData(['user', userId], (oldData) => {
+                if (!oldData) return oldData;
+                return {
+                    ...oldData,
+                    licenses: [...(oldData.licenses || []), {
+                        module_name: variables.licenseData.module_name,
+                        license_type: variables.licenseData.license_type
+                    }]
+                };
+            });
         },
         onError: (error) => {
             console.error('Failed to assign license:', error);
@@ -39,7 +56,7 @@ function LicenseManagement() {
 
     const handleAssignLicense = () => {
         if (selectedUsers.length === 0) return;
-
+        
         selectedUsers.forEach(userId => {
             assignLicenseMutation.mutate({
                 userId,

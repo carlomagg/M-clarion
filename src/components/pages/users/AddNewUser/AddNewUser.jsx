@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useImmer } from 'use-immer';
 import AddUserDetailsForm from '../../../partials/forms/manage-users/AddUserDetailsForm/AddUserDetailsForm';
@@ -15,6 +15,7 @@ const initialFormData = {
         password: '',
         supervisor_id: '',
         subsidiary_id: null,
+        source_id: '1', // Set default source ID to '1'
         require_password_change: false,
     },
     user_licenses: [],
@@ -37,6 +38,13 @@ function AddNewUser() {
     const [showConfirmation, setShowConfirmation] = useState(false);
     const navigate = useNavigate();
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+    // Define steps array at the top of the component
+    const steps = [
+        { title: 'User Details' },
+        ...(isEditMode ? [] : [{ title: 'Licenses & Permissions' }]),
+        { title: 'Review' }
+    ];
 
     const { data: supervisors, isLoading: isLoadingSupervisors, error: supervisorsError } = useQuery(supervisorsOptions());
     const { data: subsidiaries, isLoading: isLoadingSubsidiaries, error: subsidiariesError } = useQuery(subsidiariesOptions());
@@ -102,6 +110,7 @@ function AddNewUser() {
                     user_id: user.email, // Use email as ID for queue users
                     subsidiary_id: user.subsidiary_id || null,
                     supervisor_id: user.supervisor_id || '',
+                    source_id: user.source_id || '1', // Preserve source_id
                     password: '', // Clear password since we're editing
                     require_password_change: true
                 };
@@ -133,6 +142,7 @@ function AddNewUser() {
                 user_id: userId,
                 subsidiary_id: user.subsidiary_id || null,
                 supervisor_id: user.supervisor_id?.toString() || '',
+                source_id: user.source_id || '1', // Preserve source_id
                 password: '' // Clear password since we're editing
             };
         });
@@ -140,46 +150,55 @@ function AddNewUser() {
 
     // Populate form with user data when available
     useEffect(() => {
-        if (userData) {
-            console.log('Populating form with user data:', userData);
-            console.log('Current selectedUserId:', selectedUserId);
+        if (isEditMode && selectedUserId) {
+            console.log('Edit mode detected, fetching user data for ID:', selectedUserId);
+            const fetchUserData = async () => {
+                try {
+                    const userData = await fetchUser({ queryKey: ['user', selectedUserId] });
+                    console.log('Fetched user data:', userData);
+                    
+                    // Initialize form data with existing user data
+                    setFormData(prevData => {
+                        const newFormData = {
+                            ...prevData,
+                            user_details: {
+                                ...prevData.user_details,
+                                first_name: userData.firstname || '',
+                                last_name: userData.lastname || '',
+                                email_address: userData.email || '',
+                                supervisor_id: userData.supervisor || '',
+                                subsidiary_id: userData.subsidiary_id || '',
+                                source_id: userData.user_source_id || '',
+                                user_id: userData.user_id || '',
+                                user_source_id: userData.user_source_id || ''
+                            },
+                            // Preserve existing permissions
+                            user_permissions: {
+                                set_as_admin: userData.is_admin || false,
+                                permission_ids: userData.permission_ids || []
+                            },
+                            // Preserve existing licenses with proper format
+                            user_licenses: Array.isArray(userData.licenses) 
+                                ? userData.licenses.map(license => ({
+                                    module_id: parseInt(license.module_id, 10),
+                                    license_type_id: parseInt(license.license_type_id, 10)
+                                }))
+                                : []
+                        };
+                        console.log('Updated form data:', newFormData);
+                        return newFormData;
+                    });
+                    
+                    // Remove the automatic step change
+                    // setCurrentStep(2);
+                } catch (error) {
+                    console.error('Error fetching user data:', error);
+                }
+            };
             
-            const userId = parseInt(userData.user_id || selectedUserId, 10);
-            console.log('Using userId for form data:', userId);
-            
-            // Ensure isEditMode is set to true when we have user data
-            setIsEditMode(true);
-            
-            setFormData(draft => {
-                // User details with exact field names
-                draft.user_details = {
-                    ...draft.user_details,
-                    first_name: userData.firstname || '',    // Match queue format
-                    last_name: userData.lastname || '',      // Match queue format
-                    email_address: userData.email || '',     // Match queue format
-                    user_id: userId,
-                    subsidiary_id: userData.subsidiary_id || null,
-                    supervisor_id: userData.supervisor_id?.toString() || '',
-                    require_password_change: userData.require_password_change || false,
-                    password: '' // Clear password in edit mode
-                };
-                
-                // Licenses
-                draft.user_licenses = (userData.licenses || []).map(license => ({
-                    module_id: license.module_id,
-                    license_type_id: license.license_type_id
-                }));
-                
-                // Permissions
-                draft.user_permissions = {
-                    set_as_admin: userData.is_admin || false,
-                    permission_ids: (userData.permissions || [])
-                        .map(perm => perm.id || perm.permission_id)
-                        .filter(id => id != null)
-                };
-            });
+            fetchUserData();
         }
-    }, [userData, selectedUserId]);
+    }, [isEditMode, selectedUserId]);
 
     const addUserMutation = useAddUser({
         onSuccess: () => {
@@ -244,154 +263,55 @@ function AddNewUser() {
         return errors.length === 0 ? "" : `Password must contain ${errors.join(", ")}`;
     }
 
-    function validateStep(step) {
-        const validationErrors = {};
-
-        if (step === 1) {
-            if (!formData.user_details.first_name.trim()) validationErrors.first_name = 'First name is required';
-            if (!formData.user_details.last_name.trim()) validationErrors.last_name = 'Last name is required';
-            if (!formData.user_details.email_address.trim()) validationErrors.email_address = 'Email address is required';
-            if (!isEditMode || formData.user_details.password?.trim()) {
-                const passwordError = validatePassword(formData.user_details.password);
-                if (passwordError) validationErrors.password = passwordError;
-            }
-            if (!formData.user_details.subsidiary_id) validationErrors.subsidiary_id = 'Subsidiary is required';
-        }
-
-        if (step === 2) {
-            // Validate licenses
-            if (!Array.isArray(formData.user_licenses) || formData.user_licenses.length === 0) {
-                validationErrors.licenses = 'At least one license must be assigned';
-            } else {
-                const licenseErrors = formData.user_licenses.map((license, index) => {
-                    const errors = {};
-                    if (!license.module_id) errors.module_id = 'Module is required';
-                    if (!license.license_type_id) errors.license_type_id = 'License type is required';
-                    return Object.keys(errors).length > 0 ? errors : null;
-                }).filter(Boolean);
-
-                if (licenseErrors.length > 0) {
-                    validationErrors.licenses = licenseErrors;
-                }
-            }
-
-            // Validate permissions
-            if (!formData.user_permissions) {
-                validationErrors.permissions = 'Permissions are required';
-            } else {
-                if (!Array.isArray(formData.user_permissions.permission_ids)) {
-                    validationErrors.permissions = 'Permission IDs must be an array';
-                } else if (formData.user_permissions.permission_ids.length === 0) {
-                    validationErrors.permissions = 'At least one permission must be assigned';
-                } else {
-                    const invalidPermissions = formData.user_permissions.permission_ids.some(id => !Number.isInteger(id));
-                    if (invalidPermissions) {
-                        validationErrors.permissions = 'Invalid permission IDs';
-                    }
-                }
-            }
-        }
-
-        setValidationErrors(validationErrors);
-        return Object.keys(validationErrors).length === 0;
-    }
-
     const handleConfirmSubmit = async () => {
         try {
-            console.log('Submit State:', {
-                rawFormData: formData,
-                selectedUserId,
-                isEditMode,
-                currentStep,
-                'user_id in form': formData.user_details.user_id
-            });
+            setShowConfirmation(false);
+            const effectiveUserId = formData.user_details.user_id || selectedUserId;
+            const shouldBeEditMode = Boolean(effectiveUserId);
             
-            // Helper function to safely parse integer
-            const safeParseInt = (value) => {
-                if (value === null || value === undefined || value === '') return null;
-                const parsed = parseInt(value, 10);
-                return isNaN(parsed) ? null : parsed;
-            };
+            // Determine if this is a queue user (email-based ID)
+            const isQueueUser = typeof effectiveUserId === 'string' && effectiveUserId.includes('@');
 
-            // Get the effective user ID first
-            const formDataUserId = safeParseInt(formData.user_details.user_id);
-            const selectedUserIdParsed = safeParseInt(selectedUserId);
-            const effectiveUserId = formDataUserId || selectedUserIdParsed;
-            
-            console.log('User ID resolution:', {
-                formDataUserId,
-                selectedUserIdParsed,
+            console.log('Submitting user update with data:', {
                 effectiveUserId,
-                isEditMode,
-                email: formData.user_details.email_address
+                shouldBeEditMode,
+                isQueueUser,
+                formData: JSON.stringify(formData, null, 2)
             });
 
-            // Check if this is a queue user (email exists but no numeric ID)
-            const isQueueUser = isEditMode && !effectiveUserId && formData.user_details.email_address;
-            
-            // Determine if this should be an edit operation
-            const shouldBeEditMode = Boolean(effectiveUserId) || isQueueUser;
-            
-            if (!shouldBeEditMode) {
-                console.log('Creating new user');
-            } else if (isQueueUser) {
-                console.log('Processing queue user with email:', formData.user_details.email_address);
-            } else {
-                console.log('Updating existing user with ID:', effectiveUserId);
-            }
-            
+            // Prepare the payload
             const payload = {
                 user_details: {
                     ...formData.user_details,
-                    // Ensure all IDs are properly formatted as integers
-                    subsidiary_id: safeParseInt(formData.user_details.subsidiary_id),
-                    supervisor_id: safeParseInt(formData.user_details.supervisor_id),
-                    // Include user_id for numeric IDs, email for queue users
-                    ...(effectiveUserId ? { user_id: effectiveUserId } : {}),
-                    ...(isQueueUser ? { email: formData.user_details.email_address } : {})
+                    user_id: effectiveUserId
                 },
-                user_licenses: formData.user_licenses.map(license => ({
-                    module_id: safeParseInt(license.module_id),
-                    license_type_id: safeParseInt(license.license_type_id)
-                })),
+                // Always use the current form data for licenses and permissions
+                user_licenses: formData.user_licenses || [],
                 user_permissions: {
-                    set_as_admin: Boolean(formData.user_permissions.set_as_admin),
-                    permission_ids: (formData.user_permissions.permission_ids || [])
-                        .map(id => safeParseInt(id))
-                        .filter(id => id !== null)
+                    set_as_admin: formData.user_permissions?.set_as_admin || false,
+                    permission_ids: formData.user_permissions?.permission_ids || []
                 }
             };
 
-            // Remove null values from user_details
-            Object.keys(payload.user_details).forEach(key => {
-                if (payload.user_details[key] === null) {
-                    delete payload.user_details[key];
-                }
-            });
+            console.log('Prepared payload:', JSON.stringify(payload, null, 2));
 
-            // For queue users or edit mode without password
-            if ((shouldBeEditMode || isQueueUser) && !payload.user_details.password) {
-                delete payload.user_details.password;
-            }
-
-            console.log('Final payload:', payload);
-            
             if (shouldBeEditMode) {
                 if (isQueueUser) {
-                    // For queue users, we'll use a special mutation that handles email-based updates
-                    console.log('Executing queue user update with email:', formData.user_details.email_address);
-                    // You'll need to implement this mutation in users-queries.js
+                    console.log('Updating queue user with email:', formData.user_details.email_address);
                     await updateUserMutation.mutateAsync({ 
                         userId: formData.user_details.email_address, 
                         formData: payload,
-                        isQueueUser: true // Add this flag to help the mutation handler
+                        isQueueUser: true
                     });
                 } else {
-                    console.log('Executing PUT request with user ID:', effectiveUserId);
-                    await updateUserMutation.mutateAsync({ userId: effectiveUserId, formData: payload });
+                    console.log('Updating regular user with ID:', effectiveUserId);
+                    await updateUserMutation.mutateAsync({ 
+                        userId: effectiveUserId, 
+                        formData: payload 
+                    });
                 }
             } else {
-                console.log('Executing POST request for new user');
+                console.log('Creating new user');
                 await addUserMutation.mutateAsync({ formData: payload });
             }
         } catch (error) {
@@ -400,81 +320,173 @@ function AddNewUser() {
         }
     };
 
-    const steps = [
-        { title: 'User Details' },
-        { title: 'Licenses & Permissions' },
-        { title: 'Review' }
-    ];
+    const validateStep = (step) => {
+        const validationErrors = {};
+        
+        if (step === 1) {
+            // Validate user details
+            if (!formData.user_details.first_name?.trim()) {
+                validationErrors.first_name = 'First name is required';
+            }
+            if (!formData.user_details.last_name?.trim()) {
+                validationErrors.last_name = 'Last name is required';
+            }
+            if (!formData.user_details.email_address?.trim()) {
+                validationErrors.email_address = 'Email address is required';
+            }
+            if (!isEditMode && !formData.user_details.password?.trim()) {
+                validationErrors.password = 'Password is required for new users';
+            }
+        } else if (step === 2 && !isEditMode) {
+            // Validate licenses and permissions only for new users
+            if (!Array.isArray(formData.user_licenses) || formData.user_licenses.length === 0) {
+                validationErrors.licenses = 'At least one license must be assigned';
+            }
+            if (!formData.user_permissions?.permission_ids?.length) {
+                validationErrors.permissions = 'At least one permission must be assigned';
+            }
+        } else if (step === 3) {
+            // Validate review step
+            if (!formData.user_details.first_name?.trim() || 
+                !formData.user_details.last_name?.trim() || 
+                !formData.user_details.email_address?.trim()) {
+                validationErrors.review = 'Please complete all required fields';
+            }
+        }
 
-    return (
-        <div className='p-6'>
-            {/* Progress Steps */}
-            <div className="flex items-center gap-4 mb-6">
-                {steps.map((step, index) => (
-                    <div key={index}>
-                        <div className={`text-xs ${
-                            currentStep > index ? 'text-pink-600 bg-pink-50' :
-                            currentStep === index ? 'text-pink-600 bg-pink-50' :
-                            'text-gray-400'
-                        } px-3 py-1 rounded`}>
-                            {step.title}
-                        </div>
-                    </div>
-                ))}
-            </div>
+        setValidationErrors(validationErrors);
+        return Object.keys(validationErrors).length === 0;
+    };
 
-            {/* Form Steps */}
-            <div className="bg-white rounded-lg p-6">
-                {currentStep === 1 && (
+    const handleNext = () => {
+        if (currentStep === 1) {
+            if (validateStep(1)) {
+                setCurrentStep(2);
+            }
+        } else if (currentStep === 2 && !isEditMode) {
+            if (validateStep(2)) {
+                setCurrentStep(3);
+            }
+        } else if ((currentStep === 2 && isEditMode) || (currentStep === 3 && !isEditMode)) {
+            if (validateStep(3)) {
+                setShowConfirmation(true);
+            }
+        }
+    };
+
+    const handleBack = () => {
+        if (currentStep === 2 && isEditMode) {
+            setCurrentStep(1);
+        } else if (currentStep === 3) {
+            setCurrentStep(2);
+        }
+    };
+
+    const renderStep = () => {
+        switch (currentStep) {
+            case 1:
+                return (
                     <AddUserDetailsForm
                         formData={formData}
                         setFormData={setFormData}
                         validationErrors={validationErrors}
                         setValidationErrors={setValidationErrors}
-                        onNext={() => {
-                            if (validateStep(1)) {
-                                // Ensure isEditMode is set correctly before moving to next step
-                                const hasUserId = formData.user_details.user_id || selectedUserId;
-                                if (hasUserId) {
-                                    setIsEditMode(true);
-                                }
-                                setCurrentStep(2);
-                                setStepsCompleted(Math.max(stepsCompleted, 1));
-                            }
-                        }}
+                        onNext={handleNext}
                         onCancel={() => navigate('/users')}
                         isEditMode={isEditMode}
                         onUserSelect={handleUserSelect}
                         supervisors={supervisors}
                         subsidiaries={subsidiaries}
                     />
-                )}
-                {currentStep === 2 && (
-                    <AssignLicenseAndPermissions
-                        formData={formData}
-                        setFormData={setFormData}
-                        onNext={() => {
-                            // Ensure isEditMode is set correctly before moving to next step
-                            const hasUserId = formData.user_details.user_id || selectedUserId;
-                            if (hasUserId) {
-                                setIsEditMode(true);
-                            }
-                            setCurrentStep(3);
-                            setStepsCompleted(Math.max(stepsCompleted, 2));
-                        }}
-                        onBack={() => setCurrentStep(1)}
-                    />
-                )}
-                {currentStep === 3 && (
+                );
+            case 2:
+                return isEditMode ? (
                     <AddNewUserReview
                         formData={formData}
-                        onBack={() => setCurrentStep(2)}
+                        onBack={handleBack}
                         onSubmit={() => setShowConfirmation(true)}
                         supervisors={supervisors}
                         subsidiaries={subsidiaries}
                         isEditMode={isEditMode}
                     />
-                )}
+                ) : (
+                    <AssignLicenseAndPermissions
+                        formData={formData}
+                        setFormData={setFormData}
+                        onNext={handleNext}
+                        onBack={handleBack}
+                    />
+                );
+            case 3:
+                return (
+                    <AddNewUserReview
+                        formData={formData}
+                        onBack={handleBack}
+                        onSubmit={() => setShowConfirmation(true)}
+                        supervisors={supervisors}
+                        subsidiaries={subsidiaries}
+                        isEditMode={isEditMode}
+                    />
+                );
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className='p-6'>
+            {/* Breadcrumb Navigation */}
+            <div className="mb-4 flex items-center text-sm text-gray-600">
+                <Link to="/users" className="hover:text-pink-600">Users</Link>
+                <span className="mx-2">/</span>
+                <span className="text-pink-600">{isEditMode ? 'Edit User' : 'Add New User'}</span>
+            </div>
+
+            {/* Step Indicator */}
+            <div className="mb-8">
+                <div className="flex justify-between">
+                    {steps.map((step, index) => (
+                        <div key={index} className="relative flex-1">
+                            {/* Progress Bar */}
+                            {index < steps.length - 1 && (
+                                <div className="absolute left-1/2 top-1/2 w-full h-1 bg-gray-200">
+                                    <div 
+                                        className="h-full bg-pink-600 transition-all duration-300"
+                                        style={{ 
+                                            width: currentStep > index + 1 ? '100%' : 
+                                                  currentStep === index + 1 ? '50%' : '0%' 
+                                        }}
+                                    />
+                                </div>
+                            )}
+                            
+                            {/* Step Circle and Title */}
+                            <div className="flex flex-col items-center">
+                                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mb-2
+                                    ${currentStep > index ? 'bg-pink-600 border-pink-600 text-white' :
+                                      currentStep === index ? 'border-pink-600 text-pink-600' :
+                                      'border-gray-300 text-gray-300'}`}>
+                                    {currentStep > index ? (
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    ) : (
+                                        <span>{index + 1}</span>
+                                    )}
+                                </div>
+                                <p className={`text-sm font-medium
+                                    ${currentStep >= index ? 'text-pink-600' : 'text-gray-400'}`}>
+                                    {step.title}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Form Steps */}
+            <div className="bg-white rounded-lg p-6 mt-12">
+                {renderStep()}
             </div>
 
             {/* Confirmation Dialog */}

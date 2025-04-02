@@ -90,6 +90,7 @@ const ProcessTab = ({ setActiveTab }) => {
       note: assignmentForm.note,
       unit: assignmentForm.businessUnit,
       level: assignmentForm.priority,
+      permission_ids: selectedOwners.map(owner => owner.id), // Preserve permissions
       // process_ids
     };
     const res = await ProcessService.addProcessAssignment(contentData);

@@ -1,0 +1,12 @@
+.gradient-border {
+  border-width: 1px;
+  border-radius: 20px;
+  /* border-image-source: linear-gradient(
+    94.4deg,
+    #f04040 -11.47%,
+    #edf040 21.46%,
+    #40f0da 49.52%,
+    #5840ef 73.92%,
+    #ef40e8 110.52%
+  ); */
+}

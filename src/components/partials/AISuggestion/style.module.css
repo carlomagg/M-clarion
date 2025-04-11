@@ -1,0 +1,21 @@
+.buttonBorderGradient {
+    background: linear-gradient(
+    94.4deg,
+    #f04040 -11.47%,
+    #edf040 21.46%,
+    #40f0da 49.52%,
+    #5840ef 73.92%,
+    #ef40e8 110.52%
+  );
+}
+
+.dialogBorderGradient {
+    background: linear-gradient(
+    180deg,
+    #963DEF,
+    #3DC4EF,
+    #80EF3D,
+    #EBEF3C,
+    #EF3C3C
+  );
+}

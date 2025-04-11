@@ -1,0 +1,8 @@
+.CKEditor {}
+
+.ck-toolbar-spacer {
+    width: 30px; /* Adjust the width as needed */
+    border: none;
+    background: none;
+    cursor: default;
+}

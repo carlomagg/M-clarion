@@ -1,0 +1,30 @@
+.ck-toolbar-spacer {
+    flex: 1;
+    background: none !important;
+    user-select: none !important;
+    border: none !important;
+    color: none !important;
+    outline: none !important;
+}
+
+.ck.ck-toolbar {
+    background-color: #E3E3E3;
+}
+
+.ck.ck-editor__top {
+    border: 1px solid #79747E !important;
+    border-bottom: 0px !important;
+    border-radius: 6px 6px 0 0;
+    /* overflow: hidden !important; */
+}
+
+.ck.ck-editor__main {
+    border: 1px solid #79747E !important;
+    border-top: 0px !important;
+    border-radius: 0 0 6px 6px;
+    /* overflow: hidden !important; */
+}
+
+.ck.ck-editor__editable {
+    height: 10rem;
+}

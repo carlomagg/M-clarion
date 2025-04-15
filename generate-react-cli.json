@@ -1,0 +1,69 @@
+{
+  "usesTypeScript": false,
+  "usesStyledComponents": false,
+  "testLibrary": "Testing Library",
+  "usesCssModule": true,
+  "cssPreprocessor": "css",
+  "component": {
+    "default": {
+      "path": "src/components",
+      "withStyle": true,
+      "withTest": false,
+      "withStory": false,
+      "withLazy": true,
+      "customTemplates": {
+        "component": "src/templates/TemplateName.jsx"
+      }
+    },
+    "page": {
+      "path": "src/components/pages",
+      "withStyle": true,
+      "withTest": false,
+      "withStory": false,
+      "withLazy": true,
+      "customTemplates": {
+        "component": "src/templates/page/TemplateName.jsx"
+      }
+    },
+    "partial": {
+      "path": "src/components/partials",
+      "withStyle": true,
+      "withTest": false,
+      "withStory": false,
+      "withLazy": true,
+      "customTemplates": {
+        "component": "src/templates/TemplateName.jsx"
+      }
+    },
+    "form": {
+        "path": "src/components/partials/forms",
+        "withStyle": true,
+        "withTest": false,
+        "withStory": false,
+        "withLazy": true,
+        "customTemplates": {
+          "component": "src/templates/TemplateName.jsx"
+        }
+    },
+    "button": {
+        "path": "src/components/partials/buttons",
+        "withStyle": true,
+        "withTest": false,
+        "withStory": false,
+        "withLazy": true,
+        "customTemplates": {
+          "component": "src/templates/TemplateName.jsx"
+        }
+    },
+    "setting": {
+        "path": "src/components/settings/risk-management",
+        "withStyle": true,
+        "withTest": false,
+        "withStory": false,
+        "withLazy": true,
+        "customTemplates": {
+          "component": "src/templates/setting/TemplateName.jsx"
+        }
+    }
+  }
+}

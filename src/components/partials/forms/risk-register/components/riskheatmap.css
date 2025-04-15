@@ -1,0 +1,42 @@
+.heatmap-container {
+    grid-template-columns: 2rem 1fr;
+    grid-template-rows: 2rem 1fr 2rem;
+    grid-template-areas: 'evaluation evaluation' 'likelihood heatmap' 'impact impact';
+}
+
+.evaluation-label {
+    grid-area: evaluation;
+}
+
+.likelihood-label {
+    grid-area: likelihood;
+    writing-mode: vertical-lr;
+}
+
+.impact-label {
+    grid-area: impact;
+}
+
+.heatmap-box {
+    grid-area: heatmap;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    grid-template-rows: 1fr 2rem;
+    grid-template-areas: 'y-axis heatmap' '. x-axis';
+}
+
+.y-axis {
+    grid-area: y-axis;
+}
+
+.x-axis {
+    grid-area: x-axis;
+}
+
+.heatmap {
+    grid-area: heatmap;
+    display: grid;
+    /* grid-template-columns: repeat(5, minmax(5rem, 1fr));
+    grid-template-rows: repeat(5, minmax(5rem, 1fr)); */
+    gap: 4px;
+}

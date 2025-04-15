@@ -1,0 +1,60 @@
+.AddUserDetailsForm {
+    width: 100%;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+}
+
+table th, table td {
+    padding: 8px;
+}
+
+.text-pink-500 {
+    color: #EC4899;
+}
+
+.bg-pink-500 {
+    background-color: #EC4899;
+}
+
+.border-border-gray {
+    border-color: #E5E5E5;
+}
+
+.text-placeholder-gray {
+    color: #6B7280;
+}
+
+.outline-text-pink:focus {
+    outline: 2px solid #EC4899;
+    outline-offset: -2px;
+}
+
+.border-pink-on-focus:focus {
+    border-color: #EC4899;
+}
+
+/* Password strength indicator styles */
+.password-strength-indicator {
+    height: 4px;
+    transition: all 0.3s ease;
+    margin-top: 4px;
+}
+
+.password-strength-weak {
+    background-color: #EF4444;
+    width: 33%;
+}
+
+.password-strength-medium {
+    background-color: #F59E0B;
+    width: 66%;
+}
+
+.password-strength-strong {
+    background-color: #10B981;
+    width: 100%;
+}

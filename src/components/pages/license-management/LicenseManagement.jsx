@@ -1123,6 +1123,197 @@ function LicenseManagement() {
                 </>
             )}
             
+            {showRemovePermissions && (
+                <>
+                    {/* User Selection for Remove Permissions */}
+                    <div className="mb-8">
+                        <h2 className="text-xl font-semibold mb-4 text-gray-800">Select User</h2>
+                        
+                        {/* Search input */}
+                        <div className="mb-6">
+                            <input
+                                type="text"
+                                placeholder="Search users..."
+                                className="w-full p-3 border rounded-lg text-base placeholder-gray-500 focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        
+                        {/* User list with radio buttons */}
+                        <div className="max-h-96 overflow-y-auto border rounded-lg bg-white shadow-sm">
+                            {filteredUsers.map(user => (
+                                <div
+                                    key={user.user_id}
+                                    className="flex items-center p-4 border-b last:border-b-0 hover:bg-gray-50 transition-colors duration-150"
+                                >
+                                    <input
+                                        type="radio"
+                                        name="removePermissionsUser"
+                                        className="mr-4 h-5 w-5 text-pink-600 border-gray-300 focus:ring-pink-500"
+                                        checked={selectedUsers.includes(user.user_id)}
+                                        onChange={(e) => handleUserSelection(user.user_id, e.target.checked)}
+                                    />
+                                    <div className="flex flex-col">
+                                        <div className="text-base font-medium text-gray-900">
+                                            {`${user.firstname || user.first_name || ''} ${user.lastname || user.last_name || ''}`}
+                                        </div>
+                                        <div className="text-sm text-gray-600 mt-1">
+                                            {user.email || 'No email'}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* User Permissions Section */}
+                    {selectedUsers.length === 1 && (
+                        <div className="mt-8">
+                            <h2 className="text-lg font-semibold mb-4">Current Permissions</h2>
+                            <div className="flex flex-col gap-4">
+                                {(() => {
+                                    const userId = selectedUsers[0];
+                                    const userPerms = userPermissions[userId] || [];
+                                    
+                                    // If user has no permissions, show message
+                                    if (userPerms.length === 0) {
+                                        return (
+                                            <div className="p-4 border rounded-lg bg-gray-50 text-gray-600">
+                                                No permissions are currently assigned to this user.
+                                            </div>
+                                        );
+                                    }
+
+                                    // If user has permissions, show them
+                                    const permissionSections = permissions
+                                        .map((section) => {
+                                            // Filter permissions that the user has
+                                            const sectionPermissions = section.permissionGroups
+                                                .flatMap(group => group.permissions || [])
+                                                .filter(permission => userPerms.includes(parseInt(permission.permission_id, 10)));
+
+                                            if (sectionPermissions.length === 0) return null;
+
+                                            return (
+                                                <div key={`module-permissions-${section.module_id}`} className="p-4 border rounded-lg bg-gray-50">
+                                                    <h3 className="text-lg font-medium mb-4">{section.name} Permissions</h3>
+                                                    {/* Select All Checkbox */}
+                                                    <div className="mb-4 flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={sectionPermissions.every(permission => 
+                                                                permissionsToRemove.includes(parseInt(permission.permission_id, 10))
+                                                            )}
+                                                            onChange={() => {
+                                                                const allPermissionIds = sectionPermissions.map(p => 
+                                                                    parseInt(p.permission_id, 10)
+                                                                );
+                                                                const allSelected = sectionPermissions.every(permission => 
+                                                                    permissionsToRemove.includes(parseInt(permission.permission_id, 10))
+                                                                );
+                                                                
+                                                                if (allSelected) {
+                                                                    // Remove all permissions in this section
+                                                                    setPermissionsToRemove(prev => 
+                                                                        prev.filter(id => !allPermissionIds.includes(id))
+                                                                    );
+                                                                } else {
+                                                                    // Add all permissions in this section
+                                                                    setPermissionsToRemove(prev => {
+                                                                        const newPermissions = [...prev];
+                                                                        allPermissionIds.forEach(id => {
+                                                                            if (!newPermissions.includes(id)) {
+                                                                                newPermissions.push(id);
+                                                                            }
+                                                                        });
+                                                                        return newPermissions;
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                                                            id={`select-all-${section.module_id}`}
+                                                        />
+                                                        <label 
+                                                            htmlFor={`select-all-${section.module_id}`} 
+                                                            className="text-sm font-medium"
+                                                        >
+                                                            Select All
+                                                        </label>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        {sectionPermissions.map((permission) => {
+                                                            const permissionId = parseInt(permission.permission_id, 10);
+                                                            const isChecked = permissionsToRemove.includes(permissionId);
+                                                            
+                                                            return (
+                                                                <div key={`permission-${permissionId}`} className="flex items-start gap-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isChecked}
+                                                                        onChange={() => {
+                                                                            if (isChecked) {
+                                                                                setPermissionsToRemove(prev => 
+                                                                                    prev.filter(id => id !== permissionId)
+                                                                                );
+                                                                            } else {
+                                                                                setPermissionsToRemove(prev => 
+                                                                                    [...prev, permissionId]
+                                                                                );
+                                                                            }
+                                                                        }}
+                                                                        className="mt-1 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                                                                        id={`remove-permission-${permissionId}`}
+                                                                    />
+                                                                    <label htmlFor={`remove-permission-${permissionId}`} className="text-sm">
+                                                                        <div className="font-medium">{permission.name}</div>
+                                                                        {permission.description && (
+                                                                            <div className="text-gray-500">{permission.description}</div>
+                                                                        )}
+                                                                    </label>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                        .filter(Boolean);
+
+                                    // If no sections have permissions, show message
+                                    if (permissionSections.length === 0) {
+                                        return (
+                                            <div className="p-4 border rounded-lg bg-gray-50 text-gray-600">
+                                                No permissions are currently assigned to this user.
+                                            </div>
+                                        );
+                                    }
+
+                                    return permissionSections;
+                                })()}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="mt-6 flex justify-end gap-4">
+                        <button
+                            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            onClick={handleClearSelection}
+                        >
+                            Clear Selection
+                        </button>
+                        <button
+                            className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={handleRemovePermissions}
+                            disabled={selectedUsers.length === 0 || permissionsToRemove.length === 0}
+                        >
+                            Remove Selected Permissions
+                        </button>
+                    </div>
+                </>
+            )}
+            
             {/* Error and Success Messages */}
             <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md">
                 {error && (

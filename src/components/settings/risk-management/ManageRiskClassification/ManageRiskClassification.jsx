@@ -57,7 +57,7 @@ function ManageRiskClassification() {
 
 function CategoriesSection({categories, onSetShowModal}) {
     const [searchTerm, setSearchTerm] = useState('');
-    const filteredCategories = categories.filter(c => new RegExp(searchTerm, 'i').test(c.category));
+    const filteredCategories = categories.filter(c => new RegExp(searchTerm, 'i').test(c.name));
     return (
         <section className="flex flex-col gap-3">
             <div className='flex justify-between items-center'>

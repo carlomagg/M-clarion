@@ -29,6 +29,9 @@ function LicenseManagement() {
     const [showRemovePermissions, setShowRemovePermissions] = useState(false);
     const [userPermissions, setUserPermissions] = useState({});
     const [licenseCounts, setLicenseCounts] = useState({});
+    const [currentUserLicenses, setCurrentUserLicenses] = useState({});
+    const [isLoadingLicenses, setIsLoadingLicenses] = useState(false);
+    const [licenseError, setLicenseError] = useState(null);
 
     // Fetch users, modules, and permissions
     const { data: users = [], isLoading: usersLoading, error: usersError } = useQuery(usersOptions());
@@ -425,11 +428,58 @@ function LicenseManagement() {
                 }
             }
         } else {
-            // For Manage Permissions tab, keep existing multiple selection behavior
+            // For Manage Permissions tab
             if (isSelected) {
-                setSelectedUsers(prev => [...prev, userId]);
+                setIsLoadingLicenses(true);
+                setLicenseError(null);
+                try {
+                    // Fetch user's current license and permission info
+                    const response = await axios.get(
+                        `clarion_users/users/${userId}/`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${get(ACCESS_TOKEN_NAME)}`,
+                                'Content-Type': 'application/json'
+                            }
+                        }
+                    );
+                    
+                    console.log('User data response:', response.data); // Debug log
+                    
+                    // Extract licenses from response
+                    let userLicenses = [];
+                    if (response.data.licenses) {
+                        userLicenses = Array.isArray(response.data.licenses) ? response.data.licenses : [];
+                    } else if (response.data.user_licenses) {
+                        userLicenses = Array.isArray(response.data.user_licenses) ? response.data.user_licenses : [];
+                    }
+                    
+                    console.log('Extracted user licenses:', userLicenses); // Debug log
+                    
+                    // Store current licenses in state
+                    setCurrentUserLicenses(prev => {
+                        const updated = { ...prev };
+                        updated[userId] = userLicenses;
+                        console.log('Updated currentUserLicenses:', updated); // Debug log
+                        return updated;
+                    });
+                    
+                    // Add user to selected users
+                    setSelectedUsers(prev => [...prev, userId]);
+                } catch (error) {
+                    console.error('Error fetching user licenses:', error);
+                    setLicenseError(`Failed to fetch licenses for user`);
+                } finally {
+                    setIsLoadingLicenses(false);
+                }
             } else {
+                // Remove user from selections and their license info
                 setSelectedUsers(prev => prev.filter(id => id !== userId));
+                setCurrentUserLicenses(prev => {
+                    const updated = { ...prev };
+                    delete updated[userId];
+                    return updated;
+                });
             }
         }
     };
@@ -665,6 +715,32 @@ function LicenseManagement() {
         return selectedModule === moduleId;
     }, [selectedModule]);
 
+    const handleTabChange = (isRemovePermissions) => {
+        setShowRemovePermissions(isRemovePermissions);
+        setSelectedUsers([]);
+        setSelectedModule(null);
+        setSelectedLicenseType(null);
+        setSelectedPermissions([]);
+        setPermissionsToRemove([]);
+        setCurrentUserLicenses({});
+        setLicenseError(null);
+        setIsLoadingLicenses(false);
+        setSearchTerm('');
+        setQueueSearchTerm('');
+    };
+
+    // Clear selection button click handler
+    const handleClearSelection = () => {
+        setSelectedUsers([]);
+        setSelectedModule(null);
+        setSelectedLicenseType(null);
+        setSearchTerm('');
+        setQueueSearchTerm('');
+        setSelectedPermissions([]);
+        setCurrentUserLicenses({});
+        setLicenseError(null);
+    };
+
     if (usersLoading || modulesLoading || permissionsLoading) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -695,7 +771,7 @@ function LicenseManagement() {
                             ? 'border-b-2 border-pink-500 text-pink-600'
                             : 'text-gray-500 hover:text-gray-700'
                     }`}
-                    onClick={() => setShowRemovePermissions(false)}
+                    onClick={() => handleTabChange(false)}
                 >
                     Manage Permissions
                 </button>
@@ -705,15 +781,15 @@ function LicenseManagement() {
                             ? 'border-b-2 border-pink-500 text-pink-600'
                             : 'text-gray-500 hover:text-gray-700'
                     }`}
-                    onClick={() => setShowRemovePermissions(true)}
+                    onClick={() => handleTabChange(true)}
                 >
                     Remove Permissions
                 </button>
             </div>
 
-            {!showRemovePermissions ? (
+            {!showRemovePermissions && (
                 <>
-                    {/* User Selection - Moved to top */}
+                    {/* User Selection - At top */}
                     <div className="mb-8">
                         <h2 className="text-xl font-semibold mb-4 text-gray-800">Select Users</h2>
                         
@@ -811,7 +887,7 @@ function LicenseManagement() {
                         </div>
                     </div>
 
-                    {/* License Section - Moved below user selection */}
+                    {/* License Section - In middle */}
                     <div className="w-full">
                         <div className="p-4 border rounded-lg bg-white">
                             <h3 className="text-lg font-medium mb-4">Licenses</h3>
@@ -857,7 +933,7 @@ function LicenseManagement() {
                         </div>
                     </div>
 
-                    {/* Permissions Section */}
+                    {/* Permissions Section - After licenses */}
                     {selectedModule && (
                         <div className="mt-8">
                             <h2 className="text-lg font-semibold mb-4">Permissions</h2>
@@ -946,18 +1022,93 @@ function LicenseManagement() {
                         </div>
                     )}
 
-                    {/* Action Buttons */}
+                    {/* Current Licenses Section - Moved to bottom */}
+                    {selectedUsers.length > 0 && (
+                        <div className="mt-8 p-4 border rounded-lg bg-white">
+                            <h3 className="text-lg font-medium mb-4">Current Licenses</h3>
+                            {isLoadingLicenses ? (
+                                <div className="flex justify-center items-center p-4">
+                                    <span className="text-sm text-gray-500">Loading licenses...</span>
+                                </div>
+                            ) : (
+                                <>
+                                    {licenseError && (
+                                        <div className="text-sm text-red-500 mb-4">
+                                            {licenseError}
+                                        </div>
+                                    )}
+                                    {selectedUsers.map(userId => {
+                                        const userLicenses = currentUserLicenses[userId] || [];
+                                        const user = users.find(u => u.user_id === userId);
+                                        console.log('Displaying data for user:', {
+                                            userId,
+                                            user,
+                                            userLicenses,
+                                            modules: modules,
+                                            currentUserLicenses
+                                        });
+                                        return (
+                                            <div key={userId} className="mb-4 border-b pb-2">
+                                                <div className="text-sm font-medium mb-2">
+                                                    {user?.firstname} {user?.lastname} ({user?.email})
+                                                </div>
+                                                {Array.isArray(userLicenses) && userLicenses.length > 0 ? (
+                                                    userLicenses.map(license => {
+                                                        console.log('Processing license:', license);
+                                                        // Handle string-based module_id and license_type_id
+                                                        const moduleId = license.module_id;
+                                                        const licenseTypeId = license.license_type_id;
+                                                        
+                                                        // Find module by name/id
+                                                        const module = modules?.find(m => 
+                                                            m.module_id === moduleId || 
+                                                            m.module_name.toLowerCase() === moduleId.toLowerCase()
+                                                        );
+                                                        
+                                                        // Find license type by name/id
+                                                        const licenseType = module?.license_type?.find(lt => 
+                                                            lt.type_id === licenseTypeId || 
+                                                            lt.type === licenseTypeId
+                                                        );
+                                                        
+                                                        console.log('Found module and license type:', {
+                                                            moduleId,
+                                                            licenseTypeId,
+                                                            module,
+                                                            licenseType
+                                                        });
+                                                        
+                                                        return (
+                                                            <div key={`${moduleId}-${licenseTypeId}`} 
+                                                                 className="flex items-center gap-2 text-sm mb-2 ml-4">
+                                                                <span className="text-gray-600">
+                                                                    {module?.module_name || moduleId || 'Unknown Module'}:
+                                                                </span>
+                                                                <span className="text-gray-800">
+                                                                    {licenseType?.type || licenseTypeId || 'Unknown License Type'}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <p className="text-sm text-gray-500 ml-4">
+                                                        No current licenses 
+                                                        {userLicenses ? ` (Found ${userLicenses.length} licenses)` : ' (No license data)'}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Action Buttons - At very bottom */}
                     <div className="mt-6 flex justify-end gap-4">
                         <button
                             className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                            onClick={() => {
-                                setSelectedUsers([]);
-                                setSelectedModule(null);
-                                setSelectedLicenseType(null);
-                                setSearchTerm('');
-                                setQueueSearchTerm('');
-                                setSelectedPermissions([]);
-                            }}
+                            onClick={handleClearSelection}
                         >
                             Clear Selection
                         </button>
@@ -967,222 +1118,6 @@ function LicenseManagement() {
                             disabled={!selectedModule || !selectedLicenseType || selectedUsers.length === 0 || isAssigningLicense}
                         >
                             {isAssigningLicense ? 'Assigning...' : 'Assign License & Permissions'}
-                        </button>
-                    </div>
-                </>
-            ) : (
-                <>
-                    {/* Remove Permissions UI */}
-                    <div className="mb-6">
-                        <h2 className="text-xl font-semibold mb-4 text-gray-800">Select User to Remove Permissions From</h2>
-                        
-                        {/* Search input */}
-                        <div className="mb-6">
-                            <input
-                                type="text"
-                                placeholder="Search users..."
-                                className="w-full p-3 border rounded-lg text-base placeholder-gray-500 focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        
-                        {/* User list with radio buttons */}
-                        <div className="max-h-96 overflow-y-auto border rounded-lg bg-white shadow-sm">
-                            {filteredUsers.map(user => (
-                                <div
-                                    key={user.user_id}
-                                    className="flex items-center p-4 border-b last:border-b-0 hover:bg-gray-50 transition-colors duration-150"
-                                >
-                                    <input
-                                        type="radio"
-                                        name="userSelection"
-                                        className="mr-4 h-5 w-5 text-pink-600 border-gray-300 focus:ring-pink-500"
-                                        checked={selectedUsers.includes(user.user_id)}
-                                        onChange={() => handleUserSelection(user.user_id, true)}
-                                    />
-                                    <div className="flex flex-col">
-                                        <div className="text-base font-medium text-gray-900">
-                                            {`${user.firstname || user.first_name || ''} ${user.lastname || user.last_name || ''}`}
-                                        </div>
-                                        <div className="text-sm text-gray-600 mt-1">
-                                            {user.email || 'No email'}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Permissions to Remove Section */}
-                    <div className="mt-8">
-                        <h2 className="text-xl font-semibold mb-4 text-gray-800">Select Permissions to Remove</h2>
-                        <div className="flex flex-col gap-4">
-                            {selectedUsers.length > 0 ? 
-                                (() => {
-                                    // Debug logging to help diagnose the issue
-                                    console.log('selectedUsers:', selectedUsers);
-                                    console.log('userPermissions:', userPermissions);
-                                    
-                                    // Check if any selected user has permissions
-                                    const anyUserHasPermissions = selectedUsers.some(userId => 
-                                        Array.isArray(userPermissions[userId]) && userPermissions[userId].length > 0
-                                    );
-                                    
-                                    console.log('anyUserHasPermissions:', anyUserHasPermissions);
-                                    
-                                    if (anyUserHasPermissions) {
-                                        return permissions.map((section, sectionIndex) => {
-                                            // Get all permissions from this section that are assigned to selected users
-                                            const assignedSectionPermissions = section.permissionGroups?.flatMap(group => 
-                                                (group.permissions || []).filter(permission => {
-                                                    const permissionId = parseInt(permission.permission_id, 10);
-                                                    return selectedUsers.some(userId => 
-                                                        userPermissions[userId]?.includes(permissionId)
-                                                    );
-                                                })
-                                            ) || [];
-                                            
-                                            // Skip this section if no assigned permissions
-                                            if (assignedSectionPermissions.length === 0) return null;
-                                            
-                                            return (
-                                                <div key={`module-permissions-${section.module_id}-${sectionIndex}`} 
-                                                    className="p-4 border rounded-lg bg-white shadow-sm">
-                                                    <h3 className="text-lg font-medium mb-4 text-gray-800">{section.name} Permissions</h3>
-                                                    <div className="space-y-6">
-                                                        <div className="space-y-6">
-                                                            {section.permissionGroups.map((group, groupIndex) => {
-                                                                // Filter to only show permissions assigned to selected users
-                                                                const assignedPermissions = (group.permissions || []).filter(permission => {
-                                                                    const permissionId = parseInt(permission.permission_id, 10);
-                                                                    return selectedUsers.some(userId => 
-                                                                        userPermissions[userId]?.includes(permissionId)
-                                                                    );
-                                                                });
-                                                                
-                                                                // Skip this group if no assigned permissions
-                                                                if (assignedPermissions.length === 0) return null;
-                                                                
-                                                                const groupId = `${section.module_id}-${groupIndex}`;
-                                                                const isCollapsed = collapsedGroups.has(groupId);
-
-                                                                return (
-                                                                    <div key={`permission-group-${groupIndex}`} className="space-y-4">
-                                                                        <div 
-                                                                            className="border-b pb-2 cursor-pointer" 
-                                                                            onClick={() => toggleGroupCollapse(groupId)}
-                                                                        >
-                                                                            <div className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                                                                                <h4 className="text-base font-medium text-gray-800">{group.title}</h4>
-                                                                                <div className="transform transition-transform duration-200" 
-                                                                                    style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}>
-                                                                                    <IoIosArrowDown className="text-gray-600 text-xl" />
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                        {!isCollapsed && (
-                                                                            <>
-                                                                                <div className="mb-4 flex items-center gap-2 p-2">
-                                                                                    <input
-                                                                                        type="checkbox"
-                                                                                        checked={areAllPermissionsSelectedForRemoval(assignedPermissions)}
-                                                                                        onChange={() => handleSelectAllPermissionsForRemoval(assignedPermissions)}
-                                                                                        className="h-5 w-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
-                                                                                        id={`select-all-remove-${section.module_id}-${groupIndex}`}
-                                                                                    />
-                                                                                    <label 
-                                                                                        htmlFor={`select-all-remove-${section.module_id}-${groupIndex}`} 
-                                                                                        className="text-base font-medium text-gray-700"
-                                                                                    >
-                                                                                        Select All
-                                                                                    </label>
-                                                                                </div>
-                                                                                <div className="grid grid-cols-2 gap-4 p-2">
-                                                                                    {assignedPermissions.map((permission) => {
-                                                                                        const permissionId = parseInt(permission.permission_id, 10);
-                                                                                        const isChecked = permissionsToRemove.includes(permissionId);
-                                                                                        
-                                                                                        return (
-                                                                                            <div key={`permission-${permissionId}`} 
-                                                                                                className="flex items-start gap-3 p-2 rounded hover:bg-gray-50">
-                                                                                                <input
-                                                                                                    type="checkbox"
-                                                                                                    checked={isChecked}
-                                                                                                    onChange={() => handlePermissionChangeForRemoval(permissionId)}
-                                                                                                    className="mt-1 h-5 w-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
-                                                                                                    id={`permission-remove-${permissionId}`}
-                                                                                                />
-                                                                                                <label htmlFor={`permission-remove-${permissionId}`} 
-                                                                                                    className="flex flex-col gap-1">
-                                                                                                    <div className="text-base font-medium text-gray-800">
-                                                                                                        {permission.name}
-                                                                                                    </div>
-                                                                                                    {permission.description && (
-                                                                                                        <div className="text-sm text-gray-600">
-                                                                                                            {permission.description}
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                    <div className="text-sm mt-1">
-                                                                                                        <span className="text-green-600 font-medium">
-                                                                                                            Assigned to {selectedUsers.filter(userId => 
-                                                                                                                userPermissions[userId]?.includes(permissionId)
-                                                                                                            ).length} selected user(s)
-                                                                                                        </span>
-                                                                                                    </div>
-                                                                                                </label>
-                                                                                            </div>
-                                                                                        );
-                                                                                    })}
-                                                                                </div>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        });
-                                    } else {
-                                        return (
-                                            <div className="p-8 text-center border rounded-lg bg-white shadow-sm">
-                                                <div className="text-lg text-gray-600">
-                                                    {selectedUsers.length === 1 ? "User has" : "Selected users have"} no permissions assigned
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                })()
-                             : (
-                                <div className="p-8 text-center border rounded-lg bg-white shadow-sm">
-                                    <div className="text-lg text-gray-600">
-                                        Please select a user to view their permissions
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-6 flex justify-end gap-4">
-                        <button
-                            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                            onClick={() => {
-                                setSelectedUsers([]);
-                                setPermissionsToRemove([]);
-                                setUserPermissions({});
-                            }}
-                        >
-                            Clear Selection
-                        </button>
-                        <button
-                            className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={handleRemovePermissions}
-                            disabled={selectedUsers.length === 0 || permissionsToRemove.length === 0 || isRemovingPermissions}
-                        >
-                            {isRemovingPermissions ? 'Removing...' : 'Remove Permissions'}
                         </button>
                     </div>
                 </>

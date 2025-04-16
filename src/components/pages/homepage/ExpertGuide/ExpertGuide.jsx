@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BASE_API_URL } from '../../../../utils/consts';
 import PageTitle from '../../../partials/PageTitle/PageTitle';
 import PageHeader from '../../../partials/PageHeader/PageHeader';
+import BackButton from '../../../settings/components/BackButton';
 
 function ExpertGuide() {
     const {id} = useParams();
@@ -18,7 +19,10 @@ function ExpertGuide() {
     return (
         <div className='px-8 py-6 flex flex-col gap-6'>
             <PageTitle title={`${expertGuide.title} | Expert Guide`} />
-            <PageHeader />
+            <div className="flex items-center gap-4">
+                <BackButton />
+                <PageHeader />
+            </div>
             <div className='flex flex-col gap-8'>
                 <h1 className='text-4xl text-[#232536] font-bold font-["Sen"]'>
                     {expertGuide.title}

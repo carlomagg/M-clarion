@@ -81,7 +81,7 @@ export default function CategoriesTable({items}) {
 function TableRecord({record, options}) {
     return (
         <div className='px-4 flex items-center gap-4'>
-            <span className='py-2 flex-[1_0]'>{record['category']}</span>
+            <span className='py-2 flex-[1_0]'>{record['name']}</span>
             <span className='py-2 flex-[3_0]'>{record['description'] ? truncateString(record['description']) : '-'}</span>
             <span className='py-2 flex-[.5_0]'>
                 <OptionsDropdown options={options} />

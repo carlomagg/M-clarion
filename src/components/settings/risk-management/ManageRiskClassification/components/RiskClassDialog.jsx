@@ -75,7 +75,7 @@ export default function RiskClassDialog({context, onRemoveModal}) {
     else if (error) content = <div>error</div>
     else {
         const riskClass = mode === 'view' && classQuery.data;
-        const categories = riskCategoriesQuery.data.map(c => ({id: c.id, text: c.category}));
+        const categories = riskCategoriesQuery.data.map(c => ({id: c.id, text: c.name}));
 
         content = mode === 'edit' || mode === 'add' ?
             <>

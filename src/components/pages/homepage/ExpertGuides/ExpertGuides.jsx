@@ -8,6 +8,7 @@ import chevronRight from "../../../../assets/icons/tiny-icon.svg";
 
 import PageHeader from '../../../partials/PageHeader/PageHeader';
 import PageTitle from '../../../partials/PageTitle/PageTitle';
+import BackButton from '../../../settings/components/BackButton';
 
 function ExpertGuides() {
     const { isLoading, error, data: expertGuides } = useQuery(expertGuidesOptions());
@@ -18,7 +19,10 @@ function ExpertGuides() {
     return (
         <div className='p-10 pt-4 max-w-7xl flex flex-col gap-6'>
             <PageTitle title={'Expert Guides'} />
-            <PageHeader />
+            <div className="flex items-center gap-4">
+                <BackButton />
+                <PageHeader />
+            </div>
             <div className='flex flex-col gap-6'> {/* main content container */}
                 <h2 className='text-2xl font-semibold border-b border-[#7B7B7B] pb-2'>
                     Expert Guides

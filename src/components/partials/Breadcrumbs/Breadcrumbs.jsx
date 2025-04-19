@@ -181,6 +181,18 @@ function Breadcrumbs() {
             label: 'Process Management', 
             path: '/process-management' 
         });
+        
+        if (path === '/process-management/dashboard') {
+            parts.push({ 
+                label: 'Process Dashboard', 
+                path: '/process-management/dashboard' 
+            });
+        } else if (path === '/process-management/enrol') {
+            parts.push({ 
+                label: 'Enrol Process', 
+                path: '/process-management/enrol' 
+            });
+        }
     }
     
     // Render the breadcrumbs

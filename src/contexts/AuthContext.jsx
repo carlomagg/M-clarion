@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { get } from 'lockr';
+import { get, set } from 'lockr';
 import auth from '../utils/auth';
-import { ACCESS_TOKEN_NAME } from '../utils/consts';
+import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '../utils/consts';
+import axios from 'axios';
 
 const AuthContext = createContext();
+
+const REFRESH_THRESHOLD = 5 * 60 * 1000; // Refresh token 5 minutes before expiration
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
@@ -16,6 +19,30 @@ export const AuthProvider = ({ children }) => {
     setTimeout(() => {
       setMessage(null);
     }, 5000);
+  };
+
+  const refreshToken = async () => {
+    try {
+      const refreshToken = get(REFRESH_TOKEN_NAME);
+      if (!refreshToken?.token) {
+        throw new Error('No refresh token available');
+      }
+
+      const response = await axios.post('/clarion_users/auth/token/refresh/', {
+        refresh: refreshToken.token
+      });
+
+      if (response.data?.access) {
+        set(ACCESS_TOKEN_NAME, response.data.access);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
+        setIsAuthenticated(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return false;
+    }
   };
 
   const checkAuthStatus = async () => {
@@ -34,12 +61,22 @@ export const AuthProvider = ({ children }) => {
       try {
         const tokenPayload = JSON.parse(atob(token.split('.')[1]));
         const expirationTime = tokenPayload.exp * 1000; // Convert to milliseconds
+        const currentTime = Date.now();
         
-        if (Date.now() >= expirationTime) {
-          console.log('Token expired');
-          auth.logout();
-          window.location.href = '/login';
-          return;
+        // If token is expired or close to expiration, try to refresh
+        if (currentTime >= expirationTime - REFRESH_THRESHOLD) {
+          console.log('Token expired or close to expiration, attempting refresh');
+          const refreshSuccess = await refreshToken();
+          
+          if (!refreshSuccess) {
+            console.log('Token refresh failed');
+            auth.logout();
+            dispatchMessage('error', 'Your session has expired. Please log in again.');
+            window.location.href = '/login';
+            return;
+          }
+          
+          console.log('Token refreshed successfully');
         }
         
         // If we get here, token exists and is valid
@@ -62,14 +99,23 @@ export const AuthProvider = ({ children }) => {
     console.log('AuthProvider mounted, starting initial check');
     checkAuthStatus();
     
+    // Set up periodic token check every minute
+    const tokenCheckInterval = setInterval(() => {
+      checkAuthStatus();
+    }, 60000);
+    
     // Reset retry count when component remounts
-    return () => setRetryCount(0);
+    return () => {
+      clearInterval(tokenCheckInterval);
+      setRetryCount(0);
+    };
   }, []);
 
   const value = {
     isAuthenticated,
     isLoading,
     checkAuthStatus,
+    refreshToken,
     message,
     dispatchMessage
   };

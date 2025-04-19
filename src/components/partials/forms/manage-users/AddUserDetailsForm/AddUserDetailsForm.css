@@ -13,11 +13,11 @@ table th, table td {
 }
 
 .text-pink-500 {
-    color: #EC4899;
+    color: #FD3DB5;
 }
 
 .bg-pink-500 {
-    background-color: #EC4899;
+    background-color: #FD3DB5;
 }
 
 .border-border-gray {
@@ -29,12 +29,12 @@ table th, table td {
 }
 
 .outline-text-pink:focus {
-    outline: 2px solid #EC4899;
+    outline: 2px solid #FD3DB5;
     outline-offset: -2px;
 }
 
 .border-pink-on-focus:focus {
-    border-color: #EC4899;
+    border-color: #FD3DB5;
 }
 
 /* Password strength indicator styles */

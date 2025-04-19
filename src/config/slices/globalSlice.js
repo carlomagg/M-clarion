@@ -8,6 +8,7 @@ const globalSlice = createSlice({
     title: "",
     processType: "",
     processTypeTitle: "",
+    processId: null,
   },
   reducers: {
     toggleFormShow: (state, action) => {
@@ -18,9 +19,11 @@ const globalSlice = createSlice({
       state.showAssignedProcess = true;
       state.processType = action.payload.type;
       state.processTypeTitle = action.payload.title;
+      state.processId = action.payload.id;
     },
     hideAssignedProcess: (state) => {
       state.showAssignedProcess = false;
+      state.processId = null;
     },
   },
 });

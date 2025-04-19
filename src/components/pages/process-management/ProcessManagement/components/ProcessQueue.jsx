@@ -102,7 +102,7 @@ const ProcessQueue = () => {
                   className={`relative inline-flex items-center px-3 py-2 rounded-md ${
                     currentPage === totalPages
                       ? 'bg-pink-100 text-pink-300 cursor-not-allowed'
-                      : 'bg-[#E91E63] text-white hover:bg-pink-700'
+                      : 'bg-[#FD3DB5] text-white hover:bg-[#FD3DB5]/90'
                   } transition-colors duration-200`}
                 >
                   <span className="mr-2">Next</span>

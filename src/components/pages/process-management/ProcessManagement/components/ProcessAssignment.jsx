@@ -14,67 +14,77 @@ import {
 import Review from "./Review";
 
 const ProcessAssignment = () => {
-  const [priority, setPriority] = useState("High");
-  const [formData, setFormData] = useState({ description: "INitiall desc" });
-  const [selectedOwners, setSelectedOwners] = useState([]);
-  const [selectedLicenses, setSelectedLicenses] = useState([]);
-  const [selectedPermissions, setSelectedPermissions] = useState([]);
+  // Form data state
+  const [processData, setProcessData] = useState({
+    processTab: {
+      title: "",
+      description: "",
+      processType: "",
+      businessUnit: "",
+      priorityLevel: "High",
+      relatedProcesses: [],
+      dependencies: "",
+      tags: [],
+      note: "",
+    },
+    taskWorkflow: {
+      tasks: [],
+      workflow: []
+    },
+    flowChart: {
+      name: "",
+      note: "",
+      diagram: null
+    }
+  });
 
-  const { processTypeTitle, processType } = useSelector((state) => state.global);
   const [activeTab, setActiveTab] = useState("Process Tab");
+
+  const updateProcessData = (tab, data) => {
+    setProcessData(prev => ({
+      ...prev,
+      [tab]: {
+        ...prev[tab],
+        ...data
+      }
+    }));
+  };
+
+  const handleEditFromReview = (tabName) => {
+    setActiveTab(tabName);
+  };
 
   const tabToRender = () => {
     switch (activeTab) {
       case "Process Tab":
         return <ProcessTab 
-          setActiveTab={setActiveTab} 
-          selectedLicenses={selectedLicenses}
-          setSelectedLicenses={setSelectedLicenses}
-          selectedPermissions={selectedPermissions}
-          setSelectedPermissions={setSelectedPermissions}
+          setActiveTab={setActiveTab}
+          formData={processData.processTab}
+          updateFormData={(data) => updateProcessData('processTab', data)}
         />;
       case "Task And Workflow":
         return <TaskAndWorkflow 
           setActiveTab={setActiveTab}
-          selectedLicenses={selectedLicenses}
-          selectedPermissions={selectedPermissions}
+          formData={processData.taskWorkflow}
+          updateFormData={(data) => updateProcessData('taskWorkflow', data)}
         />;
       case "Flow Chart":
         return <FlowChart 
           setActiveTab={setActiveTab}
-          selectedLicenses={selectedLicenses}
-          selectedPermissions={selectedPermissions}
+          formData={processData.flowChart}
+          updateFormData={(data) => updateProcessData('flowChart', data)}
         />;
       case "Review":
         return <Review 
-          selectedLicenses={selectedLicenses}
-          selectedPermissions={selectedPermissions}
+          setActiveTab={setActiveTab}
+          processData={processData}
+          onEdit={handleEditFromReview}
         />;
       default:
         return null;
     }
   };
 
-  const users = [
-    { id: 1, text: "User 1" },
-    { id: 2, text: "User 2" },
-    { id: 3, text: "User 3" },
-  ];
-
-  const handlePriorityClick = (level) => setPriority(level);
-
-  function handleChange(e) {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  }
-  const categories = [
-    { id: 1, text: "Category 1" },
-    { id: 2, text: "Category 2" },
-    { id: 3, text: "Category 3" },
-    { id: 4, text: "Category 4" },
-  ];
   const dispatch = useDispatch();
 
   const handleBackorDiscard = () => {
@@ -83,14 +93,14 @@ const ProcessAssignment = () => {
 
   return (
     <>
-      <div className=" w-full p-6 mt-4 flex flex-col gap-4 ">
+      <div className="w-full p-6 mt-4 flex flex-col gap-4">
         <div className="bg-white p-1 rounded-lg border border-[#CCC]">
           <ul className="flex gap-6">
             <li
-              className={`p-3  font-medium text-center text-sm rounded-md grow cursor-default ${
+              className={`p-3 font-medium text-center text-sm rounded-md grow cursor-pointer ${
                 activeTab === "Process Tab"
                   ? "text-text-pink bg-text-pink/15"
-                  : "text-[#656565] "
+                  : "text-[#656565]"
               }`}
               onClick={() => setActiveTab("Process Tab")}
             >
@@ -98,10 +108,10 @@ const ProcessAssignment = () => {
             </li>
             <img src={rightArrowIcon} alt="" className="shrink" />
             <li
-              className={`p-3  font-medium text-center text-sm rounded-md grow cursor-default ${
+              className={`p-3 font-medium text-center text-sm rounded-md grow cursor-pointer ${
                 activeTab === "Task And Workflow"
                   ? "text-text-pink bg-text-pink/15"
-                  : "text-[#656565]    "
+                  : "text-[#656565]"
               }`}
               onClick={() => setActiveTab("Task And Workflow")}
             >
@@ -109,10 +119,10 @@ const ProcessAssignment = () => {
             </li>
             <img src={rightArrowIcon} alt="" className="shrink" />
             <li
-              className={`p-3  font-medium text-center text-sm rounded-md grow cursor-default ${
+              className={`p-3 font-medium text-center text-sm rounded-md grow cursor-pointer ${
                 activeTab === "Flow Chart"
                   ? "text-text-pink bg-text-pink/15"
-                  : "text-[#656565]   "
+                  : "text-[#656565]"
               }`}
               onClick={() => setActiveTab("Flow Chart")}
             >
@@ -120,10 +130,10 @@ const ProcessAssignment = () => {
             </li>
             <img src={rightArrowIcon} alt="" className="shrink" />
             <li
-              className={`p-3  font-medium text-center text-sm rounded-md grow cursor-default ${
+              className={`p-3 font-medium text-center text-sm rounded-md grow cursor-pointer ${
                 activeTab === "Review"
                   ? "text-text-pink bg-text-pink/15"
-                  : "text-[#656565]   "
+                  : "text-[#656565]"
               }`}
               onClick={() => setActiveTab("Review")}
             >

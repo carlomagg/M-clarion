@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./AiColor.css";
 import { CKEField, Field } from "../../../../partials/Elements/Elements";
 import SelectDropdown from "../../../../partials/dropdowns/SelectDropdown/SelectDropdown";
@@ -13,7 +13,7 @@ import ProcessService from "../../../../../services/Process.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import useDispatchMessage from "../../../../../hooks/useDispatchMessage";
 
-const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
+const CreateNewProcess = ({ setProcesses = null, setShowItemForm = null, editProcess = null }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ description: "INitiall desc" });
   const [newForm, setNewForm] = useState({
@@ -26,15 +26,30 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
     version: "",
   });
 
+  // Initialize form with edit data if available
+  useEffect(() => {
+    if (editProcess) {
+      setNewForm({
+        title: editProcess.name || "",
+        description: editProcess.description || "",
+        processType: editProcess.type?.toString() || "",
+        processNumber: editProcess.number || "",
+        tag: editProcess.tags || "",
+        note: editProcess.note || "",
+        version: editProcess.version?.toString() || "",
+      });
+    }
+  }, [editProcess]);
+
   const queryClient = useQueryClient();
   const dispatchMessage = useDispatchMessage();
   
   const handleInputChange = (e) => {
-    const { name, value } = e.target; // Get input name and value
+    const { name, value } = e.target;
     console.log({ name: name, value: value });
     setNewForm((prevForm) => ({
-      ...prevForm, // Spread the previous state
-      [name]: value, // Update the specific field
+      ...prevForm,
+      [name]: value,
     }));
   };
 
@@ -52,91 +67,78 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
     queryKey: ["processversion"],
     queryFn: () => ProcessService.getProcessVersion(),
   });
-  console.log("process version", ProcessVersion);
 
   const handleSave = async (e) => {
     e.preventDefault();
     console.log("Form Submitted:", newForm);
     
-    // Validate required fields
     const validationErrors = [];
     if (!newForm.title) validationErrors.push("Title is required");
     if (!newForm.processType) validationErrors.push("Process Type is required");
     if (!newForm.version) validationErrors.push("Version is required");
     
-    // Show validation errors if any
     if (validationErrors.length > 0) {
       const errorMessage = `Please complete these required fields: ${validationErrors.join(", ")}`;
       dispatchMessage('failed', errorMessage);
-      return; // Stop execution if validation fails
+      return;
     }
     
-    // Format the data to exactly match the working payload structure
-    // Using the exact same field names and order as the working example
+    // Only include fields that have values
     const contentData = {
       name: newForm.title,
       type: parseInt(newForm.processType),
-      tags: newForm.tag,
-      description: newForm.description,
-      note: newForm.note,
-      number: newForm.processNumber,
-      version: parseInt(newForm.version)
+      ...(newForm.tag && { tags: newForm.tag }),
+      ...(newForm.description && { description: newForm.description }),
+      ...(newForm.note && { note: newForm.note }),
+      ...(newForm.processNumber && { number: newForm.processNumber }),
+      version: parseInt(newForm.version),
+      status: editProcess?.status || 1
     };
     
-    // Log the exact payload for debugging
-    console.log("Sending payload:", JSON.stringify(contentData, null, 2));
-    
     try {
-      const res = await ProcessService.addProcessForm(contentData);
+      let res;
+      if (editProcess) {
+        console.log("Updating process with ID:", editProcess.id);
+        console.log("Update payload:", contentData);
+        res = await ProcessService.editProcess(editProcess.id, contentData);
+        dispatchMessage('success', 'Process updated successfully');
+      } else {
+        res = await ProcessService.addProcessForm(contentData);
+        dispatchMessage('success', 'Process saved successfully');
+      }
+      
       console.log("Process saved successfully:", res);
       queryClient.invalidateQueries("processqueue");
-      setShowItemForm(false);
-      dispatchMessage('success', 'Process saved successfully');
+      queryClient.invalidateQueries("processeslog");
+      
+      if (setShowItemForm) {
+        setShowItemForm(false);
+      } else {
+        navigate('/process-management');
+      }
     } catch (error) {
       console.error("Error saving process:", error);
-      console.error("Request data:", contentData);
+      let errorMessage = editProcess ? 'Failed to update process. ' : 'Failed to save process. ';
       
-      // Enhanced error logging and messaging
-      if (error.response) {
-        console.error("Server response status:", error.response.status);
-        console.error("Server response headers:", error.response.headers);
-        console.error("Server response data:", error.response.data);
-        
-        let errorMessage = 'Failed to save process. ';
-        
-        // Try to extract specific field errors if available
-        if (error.response.data && typeof error.response.data === 'object') {
-          if (error.response.data.message) {
-            errorMessage += error.response.data.message;
-          } else if (error.response.data.detail) {
-            errorMessage += error.response.data.detail;
-          } else {
-            // Check for field-specific errors
-            const fieldErrors = [];
-            Object.entries(error.response.data).forEach(([field, errors]) => {
-              if (Array.isArray(errors)) {
-                fieldErrors.push(`${field}: ${errors.join(', ')}`);
-              } else if (typeof errors === 'string') {
-                fieldErrors.push(`${field}: ${errors}`);
-              }
-            });
-            
-            if (fieldErrors.length > 0) {
-              errorMessage += `Please check these fields: ${fieldErrors.join('; ')}`;
-            }
-          }
+      if (error.response?.data) {
+        if (typeof error.response.data === 'object') {
+          // Handle validation errors from backend
+          const errors = Object.entries(error.response.data)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+          errorMessage += errors;
+        } else if (error.response.data.message) {
+          errorMessage += error.response.data.message;
+        } else if (error.response.data.detail) {
+          errorMessage += error.response.data.detail;
         }
-        
-        dispatchMessage('failed', errorMessage);
       } else if (error.request) {
-        // The request was made but no response was received
-        console.error("No response received:", error.request);
-        dispatchMessage('failed', 'Failed to save process. No response from server - please check your connection.');
+        errorMessage += 'No response from server - please check your connection.';
       } else {
-        // Something happened in setting up the request
-        console.error("Request setup error:", error.message);
-        dispatchMessage('failed', `Failed to save process. ${error.message}`);
+        errorMessage += error.message;
       }
+      
+      dispatchMessage('failed', errorMessage);
     }
   };
 
@@ -144,71 +146,43 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
     e.preventDefault();
     console.log("Form Submitted:", newForm);
     
-    // Format the data exactly like the working payload
     const contentData = {
       name: newForm.title || "Untitled",
-      type: newForm.processType ? parseInt(newForm.processType) : 1, // Default to 1 if not provided
+      type: newForm.processType ? parseInt(newForm.processType) : 1,
       tags: newForm.tag || "",
       description: newForm.description || "",
       note: newForm.note || "",
       number: newForm.processNumber || "",
-      version: newForm.version ? parseInt(newForm.version) : 1 // Default to 1 if not provided
+      version: newForm.version ? parseInt(newForm.version) : 1
     };
-    
-    // Log the exact payload for debugging
-    console.log("Sending payload:", JSON.stringify(contentData, null, 2));
     
     try {
       const res = await ProcessService.addProcessdraft(contentData);
       console.log(res);
       queryClient.invalidateQueries("processqueue");
-      setShowItemForm(false);
+      if (setShowItemForm) {
+        setShowItemForm(false);
+      } else {
+        navigate('/process-management');
+      }
       dispatchMessage('success', 'Process draft saved successfully');
     } catch (error) {
       console.error("Error saving draft:", error);
-      console.error("Request data:", contentData);
+      let errorMessage = 'Failed to save draft. ';
       
-      // Enhanced error logging and messaging
-      if (error.response) {
-        console.error("Server response status:", error.response.status);
-        console.error("Server response headers:", error.response.headers);
-        console.error("Server response data:", error.response.data);
-        
-        let errorMessage = 'Failed to save draft. ';
-        
-        // Try to extract specific field errors if available
-        if (error.response.data && typeof error.response.data === 'object') {
-          if (error.response.data.message) {
-            errorMessage += error.response.data.message;
-          } else if (error.response.data.detail) {
-            errorMessage += error.response.data.detail;
-          } else {
-            // Check for field-specific errors
-            const fieldErrors = [];
-            Object.entries(error.response.data).forEach(([field, errors]) => {
-              if (Array.isArray(errors)) {
-                fieldErrors.push(`${field}: ${errors.join(', ')}`);
-              } else if (typeof errors === 'string') {
-                fieldErrors.push(`${field}: ${errors}`);
-              }
-            });
-            
-            if (fieldErrors.length > 0) {
-              errorMessage += `Please check these fields: ${fieldErrors.join('; ')}`;
-            }
-          }
+      if (error.response?.data) {
+        if (error.response.data.message) {
+          errorMessage += error.response.data.message;
+        } else if (error.response.data.detail) {
+          errorMessage += error.response.data.detail;
         }
-        
-        dispatchMessage('failed', errorMessage);
       } else if (error.request) {
-        // The request was made but no response was received
-        console.error("No response received:", error.request);
-        dispatchMessage('failed', 'Failed to save draft. No response from server - please check your connection.');
+        errorMessage += 'No response from server - please check your connection.';
       } else {
-        // Something happened in setting up the request
-        console.error("Request setup error:", error.message);
-        dispatchMessage('failed', `Failed to save draft. ${error.message}`);
+        errorMessage += error.message;
       }
+      
+      dispatchMessage('failed', errorMessage);
     }
   };
 
@@ -220,7 +194,11 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
   }
 
   const handleDiscard = () => {
-    window.history.back();
+    if (setShowItemForm) {
+      setShowItemForm(false);
+    } else {
+      navigate('/process-management');
+    }
   };
 
   const categories = [
@@ -230,14 +208,13 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
     { id: 4, text: "Category 4" },
   ];
   return (
-    <>
+    <div className="p-10 pt-4 w-full flex flex-col gap-6">
       <div className="flex gap-3">
-        {/* <div className="flex space-x-4 mb-6"> */}
-        <button className="flex px-4 border text-gray-600 gradient-border ">
+        <button className="flex px-4 border text-gray-600 gradient-border">
           AI Review
         </button>
         <div className="w-full bg-white p-1 flex rounded-lg border border-[#CCC]">
-          <button className=" text-text-pink bg-text-pink/15 font-medium text-center text-sm rounded-md grow">
+          <button className="text-text-pink bg-text-pink/15 font-medium text-center text-sm rounded-md grow">
             Basic Information
           </button>
         </div>
@@ -245,28 +222,19 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
       <div className="bg-white mt-4 p-7 pt-4 border border-[#CCC] w-full flex flex-col gap-6 rounded-lg relative">
         <div className="flex flex-wrap items-center space-x-4 mb-4">
           <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-xs font-semibold">
-            PROCESS ID: Q1234
+            {editProcess ? `PROCESS ID: ${editProcess.id}` : 'New Process'}
           </span>
           <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-            Version 1
+            Version {newForm.version || '1'}
           </span>
           <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-            Date Created: 12/04/2024
+            Date Created: {new Date().toLocaleDateString()}
           </span>
           <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-            Last Updated: 12/04/2024
+            Last Updated: {new Date().toLocaleDateString()}
           </span>
         </div>
         <div className="gap-6">
-          {/* <label className="pb-4">Title</label>
-          <input
-            type="text"
-            name="title"
-            value={newForm.title}
-            className="border border-black p-3 w-full rounded-lg"
-            onChange={(e) => handleInputChange(e)}
-            placeholder="Enter task name"
-          /> */}
           <Field
             {...{
               name: "title",
@@ -335,7 +303,6 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
               name: "note",
               value: newForm.note,
               label: "Note",
-              // value: formData.description,
               onChange: handleInputChange,
             }}
           />
@@ -364,13 +331,13 @@ const CreateNewProcess = ({ setProcesses, setShowItemForm }) => {
             text={"save to draft"}
             onClick={handleSaveToDraft}
           />
-          <FormProceedButton text={"Save"} onClick={handleSave} />
+          <FormProceedButton text={editProcess ? "Update" : "Save"} onClick={handleSave} />
         </div>
       </div>
       <div>
         <ProcessQueue />
       </div>
-    </>
+    </div>
   );
 };
 

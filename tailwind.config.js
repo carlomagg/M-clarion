@@ -5,7 +5,7 @@ export default {
     extend: {
       colors: {
         button: {
-          pink: "#E44195",
+          pink: "#FD3DB5",
         },
         text: {
           pink: "#DD127A",

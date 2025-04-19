@@ -11,6 +11,8 @@ import { BASE_API_URL } from './utils/consts.js'
 import auth from './utils/auth.js'
 import { Provider } from 'react-redux'
 import { store } from './config/store.js'
+import { MessageProvider } from './contexts/MessageContext'
+import { AuthProvider } from './contexts/AuthContext'
 
 // LOCKR GLOBAL CONFIG
 setPrefix('mc_');
@@ -190,8 +192,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <ReactQueryDevtools initialIsOpen={true} />
+        <MessageProvider>
+          <AuthProvider>
+            <RouterProvider router={router} />
+            <ReactQueryDevtools initialIsOpen={true} />
+          </AuthProvider>
+        </MessageProvider>
       </QueryClientProvider>
     </Provider>
   </React.StrictMode>,

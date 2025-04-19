@@ -22,7 +22,7 @@ export function FormCancelButton({text, onClick = null}) {
 }
 
 export function FormProceedButton({text, onClick, disabled}) {
-    return <Button {...{text, onClick, disabled, colorString: 'bg-[#FF00FF] disabled:bg-[#FF00FF]/70 text-white'}} />
+    return <Button {...{text, onClick, disabled, colorString: 'bg-[#FD3DB5] disabled:bg-[#FD3DB5]/70 text-white'}} />
 }
 
 export function NewUserButton({text, onClick, disabled, isLoading}) {
@@ -31,7 +31,7 @@ export function NewUserButton({text, onClick, disabled, isLoading}) {
             type="button" 
             disabled={disabled} 
             onClick={onClick} 
-            className="flex items-center gap-2 py-2 px-6 bg-[#FF00FF] border border-[#FF00FF] rounded-lg shadow-sm hover:bg-[#FF00FF]/90 disabled:opacity-70 text-sm min-w-[140px] justify-center text-white"
+            className="flex items-center gap-2 py-2 px-6 bg-[#FD3DB5] border border-[#FD3DB5] rounded-lg shadow-sm hover:bg-[#FD3DB5]/90 disabled:opacity-70 text-sm min-w-[140px] justify-center text-white"
         >
             <span className="text-white font-bold text-lg">+</span>
             {isLoading ? 'Adding...' : text}
@@ -56,7 +56,7 @@ export function FormCustomButton({text, onClick, disabled, color = 'gray'}) {
     const colorStrings = {
         gray: 'bg-[#C3C3C3] text-black',
         white: 'bg-white text-black',
-        pink: 'bg-[#E44195] text-white'
+        pink: 'bg-[#FD3DB5] text-white'
     };
     return <Button {...{text, onClick, disabled, colorString: colorStrings[color]}} />
 }

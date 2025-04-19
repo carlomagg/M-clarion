@@ -45,6 +45,8 @@ import ManageRiskIndicators from './components/settings/risk-management/ManageRi
 import ControlEffectiveness from './components/settings/risk-management/ControlEffectiveness/ControlEffectiveness.jsx'
 import ProcessManagement from "./components/pages/process-management/ProcessManagement/ProcessManagement.jsx";
 import ProcessManagementIndex from "./components/pages/process-management/Index/Index.jsx";
+import ProcessDashboard from "./components/pages/process-management/ProcessDashboard/ProcessDashboard.jsx";
+import CreateNewProcess from "./components/pages/process-management/ProcessManagement/components/CreateNewProcess.jsx";
 import ProfileLayout from './components/profile/ProfileLayout/ProfileLayout.jsx'
 import ExpertGuide from './components/pages/homepage/ExpertGuide/ExpertGuide.jsx'
 import ExpertGuides from './components/pages/homepage/ExpertGuides/ExpertGuides.jsx'
@@ -54,6 +56,7 @@ import HelpCategories from './components/pages/homepage/HelpCategories/HelpCateg
 import LicenseManagement from './components/pages/license-management/LicenseManagement'
 import { Navigate } from 'react-router-dom';
 import useUser from './hooks/useUser';
+import ProcessView from './components/pages/process-management/ProcessView/ProcessView.jsx'
 
 // Create a wrapper component for admin-only routes
 function AdminRoute({ children }) {
@@ -144,7 +147,16 @@ const ROUTES = [
                 path: "process-management",
                 element: <ProcessManagement />,
                 breadcrumb: 'Process Management',
-                children: [{ index: true, element: <ProcessManagementIndex />, breadcrumb: 'Process Index' }],
+                children: [
+                    { index: true, element: <ProcessManagementIndex />, breadcrumb: 'Process Index' },
+                    { 
+                        path: "enrol", 
+                        element: <CreateNewProcess setShowItemForm={null} setProcesses={null} />, 
+                        breadcrumb: 'Enrol Process' 
+                    },
+                    { path: "dashboard", element: <ProcessDashboard />, breadcrumb: 'Process Dashboard' },
+                    { path: ":id/view", element: <ProcessView />, breadcrumb: 'Process Details' }
+                ],
             },
             // {
             //     path: "issues-and-incidents",

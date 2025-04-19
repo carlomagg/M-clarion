@@ -5,7 +5,7 @@ import auth from '../../utils/auth';
 import AuthContext from '../../contexts/auth-context';
 import MessageContext from '../../contexts/message-context';
 import { get } from 'lockr';
-import { AuthProvider } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 import Sidebar from '../partials/layout/Sidebar/Sidebar';
 import Header from '../partials/layout/Header/Header';
@@ -15,8 +15,7 @@ import OnboardingModal from '../partials/onboarding/OnboardingModal';
 import GlobalModalContext from '../../contexts/global-modal-context';
 
 const Layout = () => {
-    const [isLoggedIn, setIsLoggedIn] = useState(auth.isLoggedIn());
-    const [isLoading, setIsLoading] = useState(true);
+    const { isAuthenticated, isLoading, checkAuthStatus } = useAuth();
     const [message, setMessage] = useState(null);
     const [globalModalBag, setGlobalModalBag] = useState(null);
     const location = useLocation();
@@ -27,72 +26,22 @@ const Layout = () => {
     );
 
     useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const isAuthenticated = auth.isLoggedIn();
-                const refreshTokenData = get('mc_refresh');
-                const currentTime = Math.floor(Date.now() / 1000);
+        if (!isAuthenticated && !isLoading) {
+            navigate('/login', { replace: true });
+        }
+    }, [isAuthenticated, isLoading, navigate]);
 
-                // Check if token is expired
-                if (refreshTokenData && refreshTokenData.expiry && currentTime > refreshTokenData.expiry) {
-                    auth.logout();
-                    setIsLoggedIn(false);
-                    navigate('/login', { replace: true });
-                    return;
-                }
-
-                setIsLoggedIn(isAuthenticated);
-                if (!isAuthenticated) {
-                    navigate('/login', { replace: true });
-                    return;
-                }
-
-                // Check token expiration periodically
-                const checkTokenExpiration = setInterval(() => {
-                    const currentRefreshToken = get('mc_refresh');
-                    if (currentRefreshToken && currentRefreshToken.expiry) {
-                        const currentTime = Math.floor(Date.now() / 1000);
-                        if (currentTime > currentRefreshToken.expiry) {
-                            clearInterval(checkTokenExpiration);
-                            auth.logout();
-                            setIsLoggedIn(false);
-                            // Add auto-refresh before redirecting
-                            window.location.reload();
-                            navigate('/login', { replace: true });
-                        }
-                    }
-                }, 60000); // Check every minute
-
-                // Add window focus event listener
-                const handleWindowFocus = () => {
-                    const refreshTokenData = get('mc_refresh');
-                    const currentTime = Math.floor(Date.now() / 1000);
-                    
-                    if (refreshTokenData && refreshTokenData.expiry && currentTime > refreshTokenData.expiry) {
-                        auth.logout();
-                        setIsLoggedIn(false);
-                        // Add auto-refresh before redirecting
-                        window.location.reload();
-                        navigate('/login', { replace: true });
-                    }
-                };
-
-                window.addEventListener('focus', handleWindowFocus);
-
-                return () => {
-                    clearInterval(checkTokenExpiration);
-                    window.removeEventListener('focus', handleWindowFocus);
-                };
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                navigate('/login', { replace: true });
-            } finally {
-                setIsLoading(false);
-            }
+    useEffect(() => {
+        // Check auth status when window regains focus
+        const handleWindowFocus = () => {
+            checkAuthStatus();
         };
 
-        checkAuth();
-    }, [navigate]);
+        window.addEventListener('focus', handleWindowFocus);
+        return () => {
+            window.removeEventListener('focus', handleWindowFocus);
+        };
+    }, [checkAuthStatus]);
 
     useEffect(() => {
         if (contentArea.current) {
@@ -149,7 +98,7 @@ const Layout = () => {
         </div>;
     }
 
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
         return null;
     }
 
@@ -158,7 +107,6 @@ const Layout = () => {
             ...auth,
             logout: () => {
                 auth.logout();
-                setIsLoggedIn(false);
                 navigate('/login', { replace: true });
             }
         }}>
@@ -170,26 +118,24 @@ const Layout = () => {
                     showGlobalModal: handleShowGlobalModal,
                     hideGlobalModal: handleHideGlobalModal
                 }}>
-                    <AuthProvider>
-                        <div className="h-full w-full flex">
-                            {message && <ProcessIndicator />}
-                            {isOnboardingVisible && (
-                                <OnboardingModal onRemoveModal={() => setIsOnboardingVisible(false)} />
-                            )}
-                            <div className="h-full overflow-clip min-w-72">
-                                <Sidebar />
-                            </div>
-                            <div className="overflow-auto flex flex-col h-full w-full layout-content-area" ref={contentArea}>
-                                <Header />
-                                <div className="bg-[#F1F1F1] grow relative flex flex-col">
-                                    <main className="grow">
-                                        <Outlet />
-                                    </main>
-                                    <Footer />
-                                </div>
+                    <div className="h-full w-full flex">
+                        {message && <ProcessIndicator />}
+                        {isOnboardingVisible && (
+                            <OnboardingModal onRemoveModal={() => setIsOnboardingVisible(false)} />
+                        )}
+                        <div className="h-full overflow-clip min-w-72">
+                            <Sidebar />
+                        </div>
+                        <div className="overflow-auto flex flex-col h-full w-full layout-content-area" ref={contentArea}>
+                            <Header />
+                            <div className="bg-[#F1F1F1] grow relative flex flex-col">
+                                <main className="grow">
+                                    <Outlet />
+                                </main>
+                                <Footer />
                             </div>
                         </div>
-                    </AuthProvider>
+                    </div>
                 </GlobalModalContext.Provider>
             </MessageContext.Provider>
         </AuthContext.Provider>

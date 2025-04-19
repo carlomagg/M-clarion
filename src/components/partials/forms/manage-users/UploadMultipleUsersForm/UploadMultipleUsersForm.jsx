@@ -8,6 +8,31 @@ function UploadMultipleUsersForm({ file, setFile, validationErrors, setValidatio
     const [searchQuery, setSearchQuery] = useState('');
     const fileTypes = ['CSV'];
 
+    const handleDownloadTemplate = () => {
+        // Create CSV content with headers and example row
+        const headers = ['First Name', 'Last Name', 'Email'];
+        const exampleRow = ['John', 'Doe', 'john.doe@example.com'];
+        const csvContent = [
+            headers.join(','),
+            exampleRow.join(',')
+        ].join('\n');
+
+        // Create Blob and download link
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'user-upload-template.csv');
+        document.body.appendChild(link);
+        
+        link.click();
+        
+        // Clean up
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const handleFileChange = (file) => {
         setValidationErrors({});
         setFile(file);
@@ -105,7 +130,14 @@ function UploadMultipleUsersForm({ file, setFile, validationErrors, setValidatio
                 <h2 className="text-[12px] font-medium mb-2">Multiple User Upload</h2>
                 <p className="text-[12px] text-gray-600">
                     Upload a CSV file with user details create from the standard template.{' '}
-                    <a href="#" className="text-pink-500 hover:underline">
+                    <a 
+                        href="#" 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            handleDownloadTemplate();
+                        }} 
+                        className="text-pink-500 hover:underline"
+                    >
                         Download template
                     </a>
                 </p>

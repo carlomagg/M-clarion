@@ -411,7 +411,7 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack, us
                 </button>
                 <button 
                     onClick={onNext}
-                    className="flex-1 py-3 text-white font-medium bg-pink-600 hover:bg-pink-700 rounded-lg text-center"
+                    className="flex-1 py-3 text-white font-medium bg-[#FD3DB5] hover:bg-[#FD3DB5]/90 rounded-lg text-center"
                 >
                     Next
                 </button>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageTitle from "../../../partials/PageTitle/PageTitle";
 import PageHeader from "../../../partials/PageHeader/PageHeader";
 import LinkButton from "../../../partials/buttons/LinkButton/LinkButton";
@@ -18,6 +19,7 @@ import { toggleShowAssignedProcess } from "../../../../config/slices/globalSlice
 import { useQuery } from "@tanstack/react-query";
 import ProcessService from "../../../../services/Process.service";
 import ImportTab from "../ProcessManagement/components/ImportTab";
+import { useMessage } from "../../../../contexts/MessageContext";
 
 const Index = () => {
   const [showItemForm, setShowItemForm] = useState();
@@ -90,11 +92,11 @@ const Index = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Completed":
-        return "bg-green-500 text-green-800";
-      case "Draft":
+      case "ACTIVE":
+        return "bg-green-500 text-white";
+      case "DRAFT":
         return "bg-gray-200 text-gray-800";
-      case "Pending":
+      case "PENDING":
         return "bg-yellow-100 text-yellow-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -107,11 +109,58 @@ const Index = () => {
 
   //   setProcesses(updatedProcesses);
   // };
-  const handleDelete = (processId) => {
-    const updatedProcesses = processes.filter(
-      (process) => process.id !== processId
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [processToDelete, setProcessToDelete] = useState(null);
+
+  const handleDeleteClick = (processId) => {
+    console.log("Deleting process with ID:", processId);
+    setProcessToDelete(processId);
+    setShowDeleteConfirm(true);
+  };
+
+  const { dispatchMessage } = useMessage();
+
+  const handleDeleteConfirm = async () => {
+    if (processToDelete) {
+      try {
+        await ProcessService.deleteProcess(processToDelete);
+        refetch();
+        setShowDeleteConfirm(false);
+        setProcessToDelete(null);
+        dispatchMessage('success', 'Process deleted successfully');
+      } catch (error) {
+        console.error("Error deleting process:", error);
+        let errorMessage = 'Failed to delete process. ';
+        if (error.response?.data?.message) {
+          errorMessage += error.response.data.message;
+        }
+        dispatchMessage('error', errorMessage);
+      }
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setProcessToDelete(null);
+  };
+
+  const [processToEdit, setProcessToEdit] = useState(null);
+
+  const handleEdit = (process) => {
+    console.log("Opening edit form for process:", process);
+    setProcessToEdit(process);
+    setShowItemForm(true);
+  };
+
+  const handleAssignProcess = (process) => {
+    console.log("Assigning process:", process);
+    dispatch(
+      toggleShowAssignedProcess({
+        type: process.type,
+        title: process.name,
+        id: process.id
+      })
     );
-    setProcesses(updatedProcesses);
   };
 
   const {
@@ -132,6 +181,51 @@ const Index = () => {
     }
   };
 
+  const navigate = useNavigate();
+
+  const MenuDot = ({ process }) => (
+    <div className="absolute top-[100%] right-0 w-[120px] bg-white border shadow-md cursor-pointer border-[#676767] text-black rounded-lg z-10">
+      <ul className="w-full">
+        <li
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/process-management/${process.id}/view`);
+          }}
+          className="w-full px-3 py-1.5 hover:bg-gray-100 text-left"
+        >
+          View Details
+        </li>
+        <li
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAssignProcess(process);
+          }}
+          className="w-full px-3 py-1.5 hover:bg-gray-100 text-left"
+        >
+          Assign process
+        </li>
+        <li 
+          onClick={(e) => {
+            e.stopPropagation();
+            handleEdit(process);
+          }}
+          className="w-full px-3 py-1.5 hover:bg-gray-100 text-left"
+        >
+          Edit Process
+        </li>
+        <li
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeleteClick(process.id);
+          }}
+          className="w-full px-3 py-1.5 hover:bg-gray-100 text-left"
+        >
+          Delete
+        </li>
+      </ul>
+    </div>
+  );
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -145,36 +239,31 @@ const Index = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProcesses = allProcesses.slice(startIndex, startIndex + itemsPerPage);
 
-  const MenuDot = ({ process, onDelete }) => (
-    <div className="absolute  top-0 right-[5px] w-[120px]  items-center  bg-white border shadow-md cursor-pointer border-[#676767] text-black flex rounded-lg ">
-      <ul>
-        <li
-          onClick={() =>
-            dispatch(
-              toggleShowAssignedProcess({
-                type: process.processType,
-                title: process.title,
-              })
-            )
-          }
-          className="px-2 hover:bg-gray-100"
-        >
-          Assign process
-        </li>
-        <li className="px-2 hover:bg-gray-100">Edit Process</li>
-        <li
-          onClick={() => onDelete(process.id)}
-          className="px-2 hover:bg-gray-100"
-        >
-          Delete
-        </li>
-        <li className="px-2 hover:bg-gray-100">Suspend</li>
-      </ul>
-    </div>
-  );
-
   return (
     <>
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            <p className="mb-6">Are you sure you want to delete this process?</p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={handleDeleteCancel}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className={` ${!showImportTab ? "flex" : "hidden"}`}>
         <div
           className={`p-10 pt-4 w-full flex flex-col gap-6 ${
@@ -300,7 +389,10 @@ const Index = () => {
                 </thead>
                 <tbody>
                   {paginatedProcesses.map((process, index) => (
-                    <tr key={index} className="bg-white hover:bg-gray-50">
+                    <tr 
+                      key={process.id || index} 
+                      className="bg-white hover:bg-opacity-80"
+                    >
                       <td className="px-4 py-4 font-medium text-pink-500">
                         {process.id}
                       </td>
@@ -315,18 +407,19 @@ const Index = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3">{process.type}</td>
-                      <td className="text-right">
+                      <td className="text-right relative">
                         <PiDotsThreeVerticalBold
                           className="cursor-pointer text-black"
-                          onClick={() => handleMenu(index)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMenu(index);
+                          }}
                         />
                         {showMenu &&
                           showMenu.status &&
                           showMenu.index === index && (
                             <MenuDot
-                              index={index}
                               process={process}
-                              onDelete={handleDelete}
                             />
                           )}
                       </td>
@@ -386,6 +479,7 @@ const Index = () => {
               <CreateNewProcess
                 setProcesses={setProcesses}
                 setShowItemForm={setShowItemForm}
+                editProcess={processToEdit}
               />
             )}
           </div>

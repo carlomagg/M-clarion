@@ -139,6 +139,14 @@ class ProcessService {
     const token = get(ACCESS_TOKEN_NAME);
     const { process_id, ...payload } = contentData;
     try {
+      console.log("Process Assignment API call:");
+      console.log("- URL:", `process/process-definitions/${process_id}/process-assignments/`);
+      console.log("- Payload:", JSON.stringify(payload, null, 2));
+      console.log("- Headers:", {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token ? token.substring(0, 10) + '...' : 'missing'}`
+      });
+      
       const result = await axios.post(
         `process/process-definitions/${process_id}/process-assignments/`,
         payload,
@@ -150,9 +158,53 @@ class ProcessService {
         }
       );
 
+      console.log("Process Assignment API response:", result.data);
       return result.data;
     } catch (error) {
-      console.error("Error in process assignment:", error);
+      console.error("Error in process assignment API call:");
+      console.error("- Error message:", error.message);
+      
+      if (error.response) {
+        console.error("- Response status:", error.response.status);
+        console.error("- Response data:", JSON.stringify(error.response.data, null, 2));
+        console.error("- Response headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("- No response received. Request:", error.request);
+      }
+      
+      console.error("- Original payload:", JSON.stringify({
+        process_id,
+        ...payload
+      }, null, 2));
+      
+      throw error;
+    }
+  };
+
+  saveFlowChart = async (processId, flowchartData) => {
+    const token = get(ACCESS_TOKEN_NAME);
+    try {
+      // Prepare the payload according to the API requirements
+      const payload = {
+        name: flowchartData.name,
+        note: flowchartData.note,
+        process_id: processId
+      };
+
+      const result = await axios.post(
+        "process/process-flowcharts/",
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      return result.data;
+    } catch (error) {
+      console.error("Error saving flowchart:", error);
       if (error.response) {
         console.error("Response data:", error.response.data);
         console.error("Response status:", error.response.status);
@@ -260,7 +312,7 @@ class ProcessService {
 
     try {
       const result = await axios.get(
-        "risk/risk-boundaries/view-all/",
+        "process/process-boundaries/view-all/",
         {
           headers: {
             "Content-Type": "application/json",
@@ -297,31 +349,15 @@ class ProcessService {
     }
   };
 
-  addProcessTask = async (contentData) => {
+  addProcessTask = async (assignmentId, contentData) => {
     const token = get(ACCESS_TOKEN_NAME);
     try {
-      // Transform the form data to match the working format
-      const payload = {
-        owner: 1,
-        name: contentData.name || "MONDAY NAFFffg",
-        description: contentData.description || "Note for Flowchart 3favour",
-        tat: contentData.tat ? `${contentData.tat} HOURS` : "2 HOURS",
-        tags: "car yam egg",
-        control_measure: contentData.control_measure || "Get a measure",
-        status: 1,
-        note: contentData.note || "12sd",
-        assignment: 6,
-        start_date: contentData.start_date + " 05:59:11.803",
-        end_date: contentData.end_date + " 05:59:11.803"
-      };
-
-      // Log the exact payload being sent
-      console.log('Form data received:', contentData);
-      console.log('Adding process task with payload:', JSON.stringify(payload, null, 2));
+      console.log('Making API call to:', `process/process-assignments/${assignmentId}/process-tasks/`);
+      console.log('With payload:', contentData);
 
       const result = await axios.post(
-        "process/process-assignments/1/process-tasks/",
-        payload,
+        `process/process-assignments/${assignmentId}/process-tasks/`,
+        contentData,
         {
           headers: {
             "Content-Type": "application/json",
@@ -330,7 +366,6 @@ class ProcessService {
         }
       );
 
-      console.log('Process task creation successful:', result.data);
       return result.data;
     } catch (error) {
       console.error("Error in adding process task:", error);
@@ -538,6 +573,91 @@ class ProcessService {
       return result.data;
     } catch (error) {
       console.error("Error fetching process task:", error);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+      }
+      throw error;
+    }
+  };
+
+  getAllTasks = async () => {
+    const token = get(ACCESS_TOKEN_NAME);
+    try {
+      console.log('Fetching all tasks...');
+      const result = await axios.get(
+        "process/process-tasks/view-all/",
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('All tasks fetched:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error("Error fetching all tasks:", error);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+      }
+      throw error;
+    }
+  };
+
+  getAllProcessIds = async () => {
+    const token = get(ACCESS_TOKEN_NAME);
+    try {
+      console.log('Fetching all process IDs...');
+      const result = await axios.get(
+        "process/process-definitions/view-all/",
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Extract just the process IDs and titles for the dropdown
+      const processOptions = result.data.Processes ? result.data.Processes.map(process => ({
+        id: process.id,
+        title: process.title || 'Untitled Process'
+      })) : [];
+
+      console.log('Process options fetched:', processOptions);
+      return processOptions;
+    } catch (error) {
+      console.error("Error fetching process IDs:", error);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+      }
+      // Return empty array in case of error to prevent UI breakage
+      return [];
+    }
+  };
+
+  getProcessTaskOverview = async (processId) => {
+    const token = get(ACCESS_TOKEN_NAME);
+    try {
+      console.log(`Fetching task overview for process ID ${processId}...`);
+      const result = await axios.get(
+        `process/process-definitions/${processId}/processes-task-overview/`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('Process task overview fetched:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error(`Error fetching task overview for process ID ${processId}:`, error);
       if (error.response) {
         console.error("Response data:", error.response.data);
         console.error("Response status:", error.response.status);

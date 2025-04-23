@@ -1,17 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
-import { EllipsisVerticalIcon, ClockIcon, ChartBarIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
+import { EllipsisVerticalIcon, ClockIcon, ChartBarIcon, BuildingOfficeIcon, TableCellsIcon, ChartBarSquareIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import PageHeader from '../../../partials/PageHeader/PageHeader';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import DashboardWidgetLoadingIndicator from '../../../partials/skeleton-loading-indicators/DashboardWidgetIndicator';
 import Error from '../../../partials/Error/Error';
+import ProcessService from '../../../../services/Process.service';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
 const ProcessDashboard = () => {
+  const navigate = useNavigate();
+  // State for available processes and selected process
+  const [selectedProcessId, setSelectedProcessId] = useState(null);
+  const [processOptions, setProcessOptions] = useState([]);
+  // State for view mode (timeline or table)
+  const [viewMode, setViewMode] = useState('timeline'); // 'timeline' or 'table'
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Fetch all process IDs
+  const { 
+    isLoading: isProcessOptionsLoading, 
+    error: processOptionsError, 
+    data: processOptionsData 
+  } = useQuery({
+    queryKey: ['processOptions'],
+    queryFn: () => ProcessService.getAllProcessIds()
+  });
+
+  // Set default process ID when options are loaded
+  useEffect(() => {
+    if (processOptionsData && processOptionsData.length > 0 && !selectedProcessId) {
+      setSelectedProcessId(processOptionsData[0].id);
+    }
+  }, [processOptionsData, selectedProcessId]);
+
   // Define status colors mapping
   const statusColors = {
     'ACTIVE': '#f97316',    // Orange for active
@@ -35,6 +64,30 @@ const ProcessDashboard = () => {
       const response = await axios.get('/process/process-definitions/processes-priority-percentage/');
       return response.data;
     }
+  });
+
+  // Business Unit Data from API
+  const { 
+    isLoading: isBusinessUnitLoading, 
+    error: businessUnitError, 
+    data: businessUnitApiData 
+  } = useQuery({
+    queryKey: ['processBusinessUnit'],
+    queryFn: async () => {
+      const response = await axios.get('/process/process-definitions/processes-unit-percentage/');
+      return response.data;
+    }
+  });
+
+  // Task Overview Data from API
+  const { 
+    isLoading: isTaskOverviewLoading, 
+    error: taskOverviewError, 
+    data: taskOverviewData 
+  } = useQuery({
+    queryKey: ['processTaskOverview', selectedProcessId],
+    queryFn: () => ProcessService.getProcessTaskOverview(selectedProcessId),
+    enabled: !!selectedProcessId
   });
 
   // Transform API data for the process status chart
@@ -61,11 +114,11 @@ const ProcessDashboard = () => {
     }]
   };
 
-  // Business Unit Data
+  // Transform API data for the business unit chart
   const businessUnitData = {
-    labels: ['Biz Unit 1', 'Biz Unit 2', 'Biz Unit 3', 'Biz Unit 4', 'Biz Unit 5', 'Biz Unit 6', 'Biz Unit 7', 'Biz Unit 8', 'Others'],
+    labels: businessUnitApiData?.unit_distribution.map(item => item.unit_name) || [],
     datasets: [{
-      data: [8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3],
+      data: businessUnitApiData?.unit_distribution.map(item => item.percentage) || [],
       backgroundColor: [
         '#f8a5c2', '#f97316', '#22c55e', '#3b82f6', 
         '#a855f7', '#ec4899', '#64748b', '#0ea5e9', '#6b7280'
@@ -104,7 +157,7 @@ const ProcessDashboard = () => {
         color: '#000000',
         font: {
           weight: 'bold',
-          size: 14
+          size: 11
         },
         formatter: (value) => {
           if (value === 0) return '';  // Hide zero value labels
@@ -112,13 +165,64 @@ const ProcessDashboard = () => {
         },
         anchor: 'center',
         align: 'center',
-        offset: 0
+        offset: 0,
+        display: function(context) {
+          return context.dataset.data[context.dataIndex] > 0;
+        },
+        textAlign: 'center'
       }
     },
     elements: {
       arc: {
         borderWidth: 3,
         borderColor: '#ffffff'
+      }
+    }
+  };
+
+  // Create specific options for the priority chart to make it larger
+  const priorityChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '60%',
+    radius: '100%',  // Changed from 90% to 100%
+    layout: {
+      padding: 0
+    },
+    plugins: {
+      legend: {
+        position: 'right',
+        align: 'center',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 6,
+          padding: 15,
+          font: {
+            size: 11
+          }
+        }
+      },
+      tooltip: {
+        enabled: false
+      },
+      datalabels: {
+        color: '#000000',
+        font: {
+          weight: 'bold',
+          size: 11
+        },
+        formatter: (value) => {
+          if (value === 0) return '';
+          return value.toFixed(1) + '%';
+        },
+        anchor: 'center',
+        align: 'center',
+        offset: 0,
+        display: function(context) {
+          return context.dataset.data[context.dataIndex] > 0;
+        },
+        textAlign: 'center'
       }
     }
   };
@@ -145,7 +249,9 @@ const ProcessDashboard = () => {
   ];
 
   const getStatusColor = (status) => {
-    switch (status) {
+    if (!status) return 'bg-gray-300';
+    
+    switch (status.toLowerCase()) {
       case 'completed': return 'bg-green-400';
       case 'overdue': return 'bg-red-400';
       case 'at-risk': return 'bg-yellow-400';
@@ -153,6 +259,44 @@ const ProcessDashboard = () => {
       default: return 'bg-gray-300';
     }
   };
+
+  // Calculate days difference between start date and now
+  const getDaysSinceStart = (startDate) => {
+    if (!startDate) return 0;
+    
+    const start = new Date(startDate);
+    const today = new Date();
+    const diffTime = Math.abs(today - start);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // Calculate progress percentage based on days since start and days required
+  const calculateProgress = (startDate, daysRequired) => {
+    const daysSinceStart = getDaysSinceStart(startDate);
+    const progressPercentage = Math.min((daysSinceStart / daysRequired) * 100, 100);
+    return progressPercentage.toFixed(0);
+  };
+
+  // Handle task row click
+  const handleTaskClick = (taskId) => {
+    navigate(`/process/task/${selectedProcessId}/${taskId}`);
+  };
+
+  // Handle pagination
+  const getPaginatedTasks = () => {
+    if (!taskOverviewData?.tasks) return [];
+    
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return taskOverviewData.tasks.slice(startIndex, endIndex);
+  };
+
+  const totalPages = taskOverviewData?.tasks ? Math.ceil(taskOverviewData.tasks.length / itemsPerPage) : 0;
+
+  // Reset pagination when process changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedProcessId]);
 
   return (
     <>
@@ -173,7 +317,7 @@ const ProcessDashboard = () => {
                 <Error classes={'p-4'} />
               ) : (
                 <>
-                  <div className="absolute inset-0">
+                  <div className="absolute inset-0 flex items-center justify-center">
                     <Pie data={processStatusData} options={chartOptions} />
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -193,8 +337,8 @@ const ProcessDashboard = () => {
               <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
             </div>
             <div className="relative h-80">
-              <div className="absolute inset-0">
-                <Pie data={priorityData} options={chartOptions} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Pie data={priorityData} options={priorityChartOptions} />
               </div>
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <div className="bg-white p-2 rounded-full shadow-sm transform -translate-x-12">
@@ -211,14 +355,22 @@ const ProcessDashboard = () => {
               <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
             </div>
             <div className="relative h-80">
-              <div className="absolute inset-0">
-                <Pie data={businessUnitData} options={chartOptions} />
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <div className="bg-white p-2 rounded-full shadow-sm transform -translate-x-12">
-                  <BuildingOfficeIcon className="h-10 w-10 text-gray-400" />
-                </div>
-              </div>
+              {isBusinessUnitLoading ? (
+                <DashboardWidgetLoadingIndicator classes={'p-4'} height={200} />
+              ) : businessUnitError ? (
+                <Error classes={'p-4'} />
+              ) : (
+                <>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Pie data={businessUnitData} options={chartOptions} />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <div className="bg-white p-2 rounded-full shadow-sm transform -translate-x-12">
+                      <BuildingOfficeIcon className="h-10 w-10 text-gray-400" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -284,90 +436,308 @@ const ProcessDashboard = () => {
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center space-x-2">
               <h3 className="text-sm font-medium">Workflow tasks overview:</h3>
-              <select className="text-sm border-gray-300 rounded-md">
-                <option>Process Name</option>
-              </select>
+              {isProcessOptionsLoading ? (
+                <div className="text-sm text-gray-500">Loading processes...</div>
+              ) : processOptionsError ? (
+                <div className="text-sm text-red-500">Error loading processes</div>
+              ) : (
+                <select 
+                  className="text-sm border-gray-300 rounded-md min-w-[200px]"
+                  value={selectedProcessId || ''}
+                  onChange={(e) => setSelectedProcessId(Number(e.target.value))}
+                  disabled={isProcessOptionsLoading || processOptionsData?.length === 0}
+                >
+                  {processOptionsData?.length === 0 && (
+                    <option value="">No processes available</option>
+                  )}
+                  
+                  {processOptionsData?.map(process => (
+                    <option key={process.id} value={process.id}>
+                      Process: {process.id} - {process.title}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
-            <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={() => setViewMode('timeline')}
+                className={`p-1 rounded-md ${viewMode === 'timeline' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+                title="Timeline View"
+              >
+                <ChartBarSquareIcon className="h-5 w-5 text-gray-600" />
+              </button>
+              <button 
+                onClick={() => setViewMode('table')}
+                className={`p-1 rounded-md ${viewMode === 'table' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+                title="Table View"
+              >
+                <TableCellsIcon className="h-5 w-5 text-gray-600" />
+              </button>
+              <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer ml-1" />
+            </div>
           </div>
 
           <div className="relative">
-            <div className="border rounded-lg p-4">
-              {/* Timeline Header */}
-              <div className="flex border-b pb-2 mb-4">
-                <div className="w-48 flex-shrink-0">Task Name</div>
-                <div className="flex-1 grid grid-cols-4 gap-4">
-                  <div className="text-center">Q1</div>
-                  <div className="text-center">Q2</div>
-                  <div className="text-center">Q3</div>
-                  <div className="text-center">Q4</div>
-                </div>
+            {!selectedProcessId ? (
+              <div className="border rounded-lg p-4 flex items-center justify-center h-48 text-gray-500">
+                Please select a process to view its tasks
               </div>
-
-              {/* Timeline Grid */}
-              <div className="relative">
-                {/* Vertical Grid Lines */}
-                <div className="absolute inset-0 grid grid-cols-4 gap-4 pointer-events-none">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="border-l border-gray-200 h-full"></div>
-                  ))}
+            ) : isTaskOverviewLoading ? (
+              <DashboardWidgetLoadingIndicator classes={'p-4'} height={200} />
+            ) : taskOverviewError ? (
+              <Error classes={'p-4'} />
+            ) : viewMode === 'timeline' ? (
+              <div className="border rounded-lg p-4">
+                {/* Timeline Header */}
+                <div className="flex border-b pb-2 mb-4">
+                  <div className="w-48 flex-shrink-0">Task Name</div>
+                  <div className="flex-1 grid grid-cols-4 gap-4">
+                    <div className="text-center">Q1</div>
+                    <div className="text-center">Q2</div>
+                    <div className="text-center">Q3</div>
+                    <div className="text-center">Q4</div>
+                  </div>
                 </div>
 
-                {/* Current Date Line */}
-                <div className="absolute h-full w-px bg-red-500" style={{ left: '45%', zIndex: 10 }}></div>
+                {/* Timeline Grid */}
+                <div className="relative">
+                  {/* Vertical Grid Lines */}
+                  <div className="absolute inset-0 grid grid-cols-4 gap-4 pointer-events-none">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="border-l border-gray-200 h-full"></div>
+                    ))}
+                  </div>
 
-                {/* Tasks */}
-                <div className="relative space-y-4">
-                  {tasks.map((task, index) => (
-                    <div key={index} className="flex items-center min-h-[2rem]">
-                      <div className="w-48 flex-shrink-0 text-sm">{task.name}</div>
-                      <div className="flex-1 relative">
+                  {/* Current Date Line */}
+                  <div className="absolute h-full w-px bg-red-500" style={{ left: '45%', zIndex: 10 }}></div>
+
+                  {/* Tasks */}
+                  <div className="relative space-y-4">
+                    {getPaginatedTasks().map((task, index) => {
+                      // Calculate task position based on start date for visualization
+                      // This is a simplified calculation - in a real app, you'd use actual dates to position tasks
+                      const startMonth = task.ptask_start_date ? new Date(task.ptask_start_date).getMonth() : 0;
+                      const startQuarter = Math.floor(startMonth / 3) + 1;
+                      
+                      // Estimate end quarter based on days required
+                      const endMonth = task.ptask_start_date ? 
+                        new Date(new Date(task.ptask_start_date).setDate(
+                          new Date(task.ptask_start_date).getDate() + (task.days_required || 30)
+                        )).getMonth() : 3;
+                      const endQuarter = Math.floor(endMonth / 3) + 1;
+                      
+                      // Generate a position value between 0 and 1 for vertical placement
+                      const position = (index % 10) / 10 + 0.1;
+                      
+                      return (
                         <div 
-                          className={`absolute h-8 ${getStatusColor(task.status)} rounded`}
-                          style={{
-                            left: `${((task.startQuarter - 1) / 4) * 100}%`,
-                            width: `${((task.endQuarter - task.startQuarter + 1) / 4) * 100}%`,
-                            top: '0'
-                          }}
+                          key={index} 
+                          className="flex items-center min-h-[2rem] cursor-pointer" 
+                          onClick={() => handleTaskClick(task.ptask_id)}
                         >
-                          <span className="absolute inset-0 flex items-center justify-center text-xs text-white">
-                            {task.duration}
-                          </span>
+                          <div className="w-48 flex-shrink-0 text-sm">{task.ptask_name}</div>
+                          <div className="flex-1 relative">
+                            <div 
+                              className={`absolute h-8 ${getStatusColor(task.ptask_status)} rounded`}
+                              style={{
+                                left: `${((startQuarter - 1) / 4) * 100}%`,
+                                width: `${((endQuarter - startQuarter + 1) / 4) * 100}%`,
+                                top: '0'
+                              }}
+                            >
+                              <span className="absolute inset-0 flex items-center justify-center text-xs text-white">
+                                {task.days_required ? `${task.days_required} days` : 'No duration'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
+                      );
+                    })}
+                    
+                    {(!taskOverviewData?.tasks || taskOverviewData.tasks.length === 0) && (
+                      <div className="text-center py-4 text-gray-500">
+                        No tasks available for this process
                       </div>
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Timeline Legend */}
-              <div className="flex items-center justify-end space-x-4 mt-4 pt-4 border-t">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                  <span className="text-xs">Completed</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                  <span className="text-xs">Over Due</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                  <span className="text-xs">At Risk</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-                  <span className="text-xs">In Progress</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-                  <span className="text-xs">Pending</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-px h-4 bg-red-500"></div>
-                  <span className="text-xs">Current date</span>
+                {taskOverviewData?.tasks && taskOverviewData.tasks.length > itemsPerPage && (
+                  <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={`flex items-center text-sm font-medium px-4 py-2 rounded ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-white bg-pink-500 hover:bg-pink-600 shadow-sm'}`}
+                    >
+                      <ChevronLeftIcon className="h-4 w-4 mr-1" />
+                      Previous
+                    </button>
+                    <div className="text-sm text-gray-600">
+                      Page {currentPage} of {totalPages}
+                      <span className="ml-2 text-gray-500">
+                        ({taskOverviewData.tasks.length} tasks)
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => setCurrentPage(prev => prev < totalPages ? prev + 1 : prev)}
+                      disabled={currentPage === totalPages}
+                      className={`flex items-center text-sm font-medium px-4 py-2 rounded ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-white bg-pink-500 hover:bg-pink-600 shadow-sm'}`}
+                    >
+                      Next
+                      <ChevronRightIcon className="h-4 w-4 ml-1" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Timeline Legend */}
+                <div className="flex items-center justify-end space-x-4 mt-4 pt-4 border-t">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                    <span className="text-xs">Completed</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                    <span className="text-xs">Overdue</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    <span className="text-xs">At Risk</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+                    <span className="text-xs">In Progress</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                    <span className="text-xs">Pending</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-px h-4 bg-red-500"></div>
+                    <span className="text-xs">Current date</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="border rounded-lg p-4">
+                {/* Task Overview Table */}
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Task Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Start Date
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Days Required
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Progress
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {getPaginatedTasks().map((task, index) => (
+                      <tr 
+                        key={index} 
+                        onClick={() => handleTaskClick(task.ptask_id)}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {task.ptask_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(task.ptask_status)}`}>
+                            {task.ptask_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {task.ptask_start_date ? new Date(task.ptask_start_date).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {task.days_required || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div 
+                              className={`h-2.5 rounded-full ${task.ptask_status === 'completed' ? 'bg-green-400' : 'bg-blue-400'}`} 
+                              style={{ width: `${calculateProgress(task.ptask_start_date, task.days_required)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs mt-1 block">
+                            {calculateProgress(task.ptask_start_date, task.days_required)}% Complete
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    
+                    {(!taskOverviewData?.tasks || taskOverviewData.tasks.length === 0) && (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No tasks available for this process
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {taskOverviewData?.tasks && taskOverviewData.tasks.length > itemsPerPage && (
+                  <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={`flex items-center text-sm font-medium px-4 py-2 rounded ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-white bg-pink-500 hover:bg-pink-600 shadow-sm'}`}
+                    >
+                      <ChevronLeftIcon className="h-4 w-4 mr-1" />
+                      Previous
+                    </button>
+                    <div className="text-sm text-gray-600">
+                      Page {currentPage} of {totalPages}
+                      <span className="ml-2 text-gray-500">
+                        ({taskOverviewData.tasks.length} tasks)
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => setCurrentPage(prev => prev < totalPages ? prev + 1 : prev)}
+                      disabled={currentPage === totalPages}
+                      className={`flex items-center text-sm font-medium px-4 py-2 rounded ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-white bg-pink-500 hover:bg-pink-600 shadow-sm'}`}
+                    >
+                      Next
+                      <ChevronRightIcon className="h-4 w-4 ml-1" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Task Status Legend */}
+                <div className="flex items-center justify-end space-x-4 mt-4 pt-4 border-t">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                    <span className="text-xs">Completed</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                    <span className="text-xs">Overdue</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    <span className="text-xs">At Risk</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+                    <span className="text-xs">In Progress</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                    <span className="text-xs">Pending</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -57,6 +57,8 @@ import LicenseManagement from './components/pages/license-management/LicenseMana
 import { Navigate } from 'react-router-dom';
 import useUser from './hooks/useUser';
 import ProcessView from './components/pages/process-management/ProcessView/ProcessView.jsx'
+import ProcessSelector from './components/pages/process-management/ProcessSelector/ProcessSelector.jsx'
+import ProcessTaskDetails from './components/pages/process-management/ProcessTaskDetails/ProcessTaskDetails.jsx'
 
 // Create a wrapper component for admin-only routes
 function AdminRoute({ children }) {
@@ -146,17 +148,29 @@ const ROUTES = [
             {
                 path: "process-management",
                 element: <ProcessManagement />,
-                breadcrumb: 'Process Management',
+                breadcrumb: 'Process Log',
                 children: [
-                    { index: true, element: <ProcessManagementIndex />, breadcrumb: 'Process Index' },
+                    { index: true, element: <ProcessManagementIndex />, breadcrumb: 'Process Log' },
+                    { path: "log", element: <ProcessManagementIndex />, breadcrumb: 'Process Log' },
                     { 
                         path: "enrol", 
                         element: <CreateNewProcess setShowItemForm={null} setProcesses={null} />, 
                         breadcrumb: 'Enrol Process' 
                     },
-                    { path: "dashboard", element: <ProcessDashboard />, breadcrumb: 'Process Dashboard' },
-                    { path: ":id/view", element: <ProcessView />, breadcrumb: 'Process Details' }
+                    { 
+                        path: "assign", 
+                        element: <ProcessSelector />, 
+                        breadcrumb: 'Process Assignment' 
+                    },
+                    { path: "dashboard", element: <ProcessDashboard />, breadcrumb: 'Dashboard' },
+                    { path: ":id/view", element: <ProcessView />, breadcrumb: 'Details' }
                 ],
+            },
+            // Process Task Details route
+            {
+                path: "process/task/:processId/:taskId",
+                element: <ProcessTaskDetails />,
+                breadcrumb: 'Task Details'
             },
             // {
             //     path: "issues-and-incidents",

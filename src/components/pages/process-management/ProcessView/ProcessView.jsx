@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ProcessService from '../../../../services/Process.service';
 import PageTitle from '../../../partials/PageTitle/PageTitle';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
@@ -8,15 +8,29 @@ import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 function ProcessView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const {
     isLoading,
     data,
-    error
+    error,
+    refetch
   } = useQuery({
     queryKey: ['process', id],
     queryFn: () => ProcessService.getProcessById(id),
+    refetchOnWindowFocus: true,
   });
+
+  // Function to manually refresh the data
+  const refreshData = async () => {
+    await queryClient.invalidateQueries(['process', id]);
+    await refetch();
+  };
+
+  React.useEffect(() => {
+    // Refresh data when component mounts
+    refreshData();
+  }, [id]);
 
   if (isLoading) {
     return <div className="p-6">Loading process details...</div>;
@@ -56,7 +70,7 @@ function ProcessView() {
       <div className="mt-6 bg-white rounded-lg shadow p-6">
         {/* Header Information */}
         <div className="flex items-center space-x-2 mb-6">
-          <span className="text-pink-500 font-bold">PROCESS ID: {process.id}</span>
+          <span className="text-pink-500 font-bold">PROCESS ID: {process.process_id}</span>
           <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded">
             Version {process.version}
           </span>
@@ -75,7 +89,7 @@ function ProcessView() {
         <div className="space-y-6">
           {/* Basic Information */}
           <div>
-            <h3 className="text-lg font-semibold mb-2">{process.name}</h3>
+            <h3 className="text-lg font-semibold mb-2">{process.process_title}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Process Type</label>
@@ -114,10 +128,9 @@ function ProcessView() {
           {process.notes && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-              <div 
-                className="prose max-w-none bg-gray-50 p-4 rounded-md"
-                dangerouslySetInnerHTML={{ __html: process.notes }}
-              />
+              <div className="prose max-w-none bg-gray-50 p-4 rounded-md">
+                {process.notes}
+              </div>
             </div>
           )}
 
@@ -141,16 +154,71 @@ function ProcessView() {
           {/* Tasks */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Tasks</label>
-            <div className="prose max-w-none bg-gray-50 p-4 rounded-md">
-              {process.tasks}
+            <div className="bg-gray-50 p-4 rounded-md">
+              {Array.isArray(process.tasks) ? (
+                <div className="space-y-4">
+                  {process.tasks.map((task, index) => (
+                    <div key={index} className="border-b pb-4 last:border-b-0 last:pb-0">
+                      <h4 className="font-medium">{task.taskName || task.name}</h4>
+                      {task.description && (
+                        <p className="text-gray-600 mt-1">{task.description}</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
+                        <div>
+                          <span className="text-gray-500">Owner: </span>
+                          <span>{task.owner || 'Not assigned'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Status: </span>
+                          <span>{task.status || 'Pending'}</span>
+                        </div>
+                        {task.start_date && (
+                          <div>
+                            <span className="text-gray-500">Start Date: </span>
+                            <span>{new Date(task.start_date).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                        {task.end_date && (
+                          <div>
+                            <span className="text-gray-500">End Date: </span>
+                            <span>{new Date(task.end_date).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">No tasks available</p>
+              )}
             </div>
           </div>
 
           {/* Flowcharts */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Flowcharts</label>
-            <div className="prose max-w-none bg-gray-50 p-4 rounded-md">
-              {process.flowcharts}
+            <div className="bg-gray-50 p-4 rounded-md">
+              {Array.isArray(process.flowcharts) ? (
+                <div className="space-y-4">
+                  {process.flowcharts.map((flowchart, index) => (
+                    <div key={index} className="border-b pb-4 last:border-b-0 last:pb-0">
+                      <h4 className="font-medium">{flowchart.name}</h4>
+                      {flowchart.note && (
+                        <div className="mt-2 text-gray-600" dangerouslySetInnerHTML={{ __html: flowchart.note }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : typeof process.flowcharts === 'object' && process.flowcharts ? (
+                <div>
+                  <h4 className="font-medium">{process.flowcharts.name || 'Untitled Flowchart'}</h4>
+                  {process.flowcharts.note && (
+                    <div className="mt-2 text-gray-600" dangerouslySetInnerHTML={{ __html: process.flowcharts.note }} />
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500">No flowcharts available</p>
+              )}
             </div>
           </div>
         </div>

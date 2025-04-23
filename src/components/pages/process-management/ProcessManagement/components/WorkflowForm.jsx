@@ -7,24 +7,70 @@ import {
   FormProceedButton,
 } from "../../../../partials/buttons/FormButtons/FormButtons";
 import ProcessService from "../../../../../services/Process.service";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMessage } from "../../../../../contexts/MessageContext";
+import { useParams } from "react-router-dom";
 
 import { PiDotsThreeVerticalBold } from "react-icons/pi";
 
-const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, taskId }) => {
+// Debug helper for message alerts
+const showDebugAlert = (message) => {
+  // Create a temporary element to show the message
+  const alertElement = document.createElement('div');
+  alertElement.style.position = 'fixed';
+  alertElement.style.bottom = '20px';
+  alertElement.style.right = '20px';
+  alertElement.style.backgroundColor = '#4CAF50';
+  alertElement.style.color = 'white';
+  alertElement.style.padding = '15px';
+  alertElement.style.borderRadius = '5px';
+  alertElement.style.zIndex = '9999';
+  alertElement.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+  alertElement.textContent = message;
+  
+  // Add to document
+  document.body.appendChild(alertElement);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    document.body.removeChild(alertElement);
+  }, 3000);
+};
+
+const WorkflowForm = ({ 
+  setWorkflowSteps, 
+  setShowWorkflowForm, 
+  savedFormData, 
+  taskId,
+  existingSteps = [],
+  addTaskToWorkflow,
+  updateTaskInWorkflow,
+  onAfterSave = () => {},
+  initialValues,
+  editingIndex,
+  saveFormState,
+  workflowSteps,
+  processId: propProcessId
+}) => {
+  // Use passed processId prop if available, otherwise fall back to URL params
+  const { id: urlProcessId } = useParams();
+  const processId = propProcessId || urlProcessId;
+  
+  console.log("WorkflowForm - Using processId:", processId);
+  
+  const queryClient = useQueryClient();
   const { dispatchMessage } = useMessage();
   
   const [formDetails, setFormDetails] = useState({
-    taskName: savedFormData?.taskName || "",
+    taskName: savedFormData?.taskName || savedFormData?.name || "",
     description: savedFormData?.description || "",
     turnAroundTime: savedFormData?.turnAroundTime || "",
     statusName: savedFormData?.statusName || "",
-    startDate: savedFormData?.startDate || "",
-    endDate: savedFormData?.endDate || "",
+    startDate: savedFormData?.startDate || savedFormData?.start_date || "",
+    endDate: savedFormData?.endDate || savedFormData?.end_date || "",
     owner_ids: savedFormData?.owner_ids || [],
     note: savedFormData?.note || "",
-    control: savedFormData?.control || "",
+    control: savedFormData?.control || savedFormData?.control_measure || "",
   });
 
   const [selectedOwners, setSelectedOwners] = useState(savedFormData?.selectedOwners || []);
@@ -65,14 +111,26 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
     queryFn: () => ProcessService.getProcessTask(taskId),
     enabled: !!taskId, // Only run query if taskId exists
     onSuccess: (data) => {
+      // Parse TAT value for proper display
+      let tatValue = data.TAT || "";
+      // If TAT contains "HOURS", convert to minutes for editing
+      if (typeof tatValue === 'string' && tatValue.includes('HOURS')) {
+        const hoursValue = parseInt(tatValue.replace('HOURS', '').trim());
+        tatValue = hoursValue * 60; // Convert hours to minutes
+      } else if (typeof tatValue === 'string') {
+        // Extract numeric value if it exists
+        const match = tatValue.match(/\d+/);
+        tatValue = match ? match[0] : "";
+      }
+
       // Update form with existing task data
       setFormDetails({
         taskName: data.name || "",
         description: data.description || "",
-        turnAroundTime: data.tat?.replace(" Hours", "") || "",
+        turnAroundTime: tatValue,
         statusName: data.status?.toString() || "",
-        startDate: data.start_date || "",
-        endDate: data.end_date || "",
+        startDate: data.start_date || "", // API returns YYYY-MM-DD
+        endDate: data.end_date || "", // API returns YYYY-MM-DD
         owner_ids: data.owner_ids || [],
         note: data.note || "",
         control: data.control_measure || "",
@@ -90,6 +148,13 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
       }
     }
   });
+
+  // Debug logging
+  useEffect(() => {
+    console.log("WorkflowForm - Initializing with savedFormData:", savedFormData);
+    console.log("WorkflowForm - Existing steps:", existingSteps);
+    console.log("WorkflowForm - Task ID for editing:", taskId);
+  }, [savedFormData, existingSteps, taskId]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -154,146 +219,202 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
     }
 
     try {
-      const contentData = {
+      // Format dates properly for API
+      const formattedStartDate = formDetails.startDate ? 
+        new Date(formDetails.startDate).toISOString().split('T')[0] + ' 00:00:00.000' :
+        "2024-11-14 05:59:11.803";
+      
+      const formattedEndDate = formDetails.endDate ? 
+        new Date(formDetails.endDate).toISOString().split('T')[0] + ' 00:00:00.000' :
+        "2024-11-24 05:59:11.803";
+        
+      // Use the fixed assignment ID as specified in the URL
+      const assignmentId = 1;
+      
+      // The exact payload as specified by the user
+      const taskData = {
+        owner: 1,
         name: formDetails.taskName,
         description: formDetails.description,
-        owner: selectedOwners.map(owner => owner.id),
-        tat: formDetails.turnAroundTime,
+        tat: `${formDetails.turnAroundTime} MINUTES`,
         tags: "car yam egg",
-        control_measure: formDetails.control,
+        control_measure: formDetails.control || "Get a measure",
         status: 1,
         note: formDetails.note || "12sd",
-        assignment: 6,
-        start_date: formDetails.startDate,
-        end_date: formDetails.endDate
+        assignment: 6, // Using the exact value provided
+        start_date: formattedStartDate,
+        end_date: formattedEndDate
       };
 
-      console.log('Sending task data:', contentData);
+      console.log('Sending task data to correct endpoint:', taskData);
+      console.log('Using specific URL: /process/process-assignments/1/process-tasks/');
 
-      if (taskId) {
-        // Update existing task
-        await ProcessService.updateProcessTask(taskId, contentData);
-        dispatchMessage('success', 'Workflow task updated successfully');
-      } else {
-        // Create new task
-        await ProcessService.addProcessTask(contentData);
-        dispatchMessage('success', 'Workflow task saved successfully');
-      }
+      // Call the service with the fixed assignment ID=1
+      const result = await ProcessService.addProcessTask(1, taskData);
+      console.log("Task saved successfully:", result);
 
-      // Update the workflow steps UI
-      const uiData = {
-        task: formDetails.taskName,
-        tat: formDetails.turnAroundTime + " Hours",
-        status: formDetails.statusName,
-        startDate: formDetails.startDate,
-        endDate: formDetails.endDate,
-        owners: selectedOwners.map(owner => owner.text),
-        description: formDetails.description,
-        note: formDetails.note,
-        control: formDetails.control,
+      // Create the new task object
+      const newTask = {
+        ...taskData,
+        id: result.id || Math.floor(Math.random() * 10000), // Simple numeric ID if API doesn't return one
+        selectedOwners: selectedOwners,
+        turnAroundTime: formDetails.turnAroundTime,
+        statusName: result.status || 'Pending',
+        start_date: formattedStartDate, // Use formatted date
+        end_date: formattedEndDate, // Use formatted date
+        startDate: formattedStartDate, // Include both versions for consistency
+        endDate: formattedEndDate, // Include both versions for consistency
+        taskName: formDetails.taskName // Add taskName for consistency
       };
       
-      setWorkflowSteps(prevSteps => {
-        if (taskId) {
-          // Update existing step
-          return prevSteps.map(step => 
-            step.id === taskId ? uiData : step
-          );
+      console.log("New task created:", newTask);
+      
+      // Use the direct functions for updating task list
+      if (taskId) {
+        updateTaskInWorkflow(taskId, newTask);
+        // Use consistent message format and log the message dispatching
+        console.log("Dispatching success message: Task updated successfully");
+        dispatchMessage('success', 'Task updated successfully');
+        // Show debug alert as backup
+        showDebugAlert('Task updated successfully');
+      } else {
+        // Make sure addTaskToWorkflow is called with the new task
+        if (typeof addTaskToWorkflow === 'function') {
+          addTaskToWorkflow(newTask);
+          // Use consistent message format and log the message dispatching
+          console.log("Dispatching success message: Task added successfully");
+          dispatchMessage('success', 'Task added successfully');
+          // Show debug alert as backup
+          showDebugAlert('Task added successfully');
+        } else {
+          console.error("addTaskToWorkflow is not a function", addTaskToWorkflow);
+          dispatchMessage('error', 'Could not add task to workflow');
+          // Show debug alert as backup
+          showDebugAlert('Error: Could not add task to workflow');
         }
-        // Add new step
-        return [...prevSteps, uiData];
-      });
-
+      }
+      
       setShowWorkflowForm(false);
+      onAfterSave();
     } catch (error) {
-      console.error("Error saving workflow task:", error);
-      let errorMessage = taskId ? 'Failed to update workflow task. ' : 'Failed to save workflow task. ';
+      console.error('Error saving task:', error);
+      let errorMessage = 'Failed to save task. ';
       
       if (error.response?.data?.message) {
         errorMessage += error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage += 'Please check if all required fields are filled correctly.';
       } else if (error.response?.status === 404) {
         errorMessage += 'Task endpoint not found.';
-      } else if (error.response?.status === 400) {
-        errorMessage += 'Please check if all fields are filled correctly.';
       } else {
-        errorMessage += 'An unexpected error occurred.';
+        errorMessage += error.message || 'An unexpected error occurred.';
       }
       
       dispatchMessage('error', errorMessage);
+      // Show debug alert for error
+      showDebugAlert('Error: ' + errorMessage);
     }
+  };
+
+  // Format date for input fields (YYYY-MM-DD)
+  const formatDateForInput = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toISOString().split('T')[0];
   };
 
   const handleSaveAsDraft = async () => {
     try {
-      const contentData = {
-        name: formDetails.taskName || "",
-        description: formDetails.description || "",
-        owner: selectedOwners.map(owner => owner.id),
-        tat: formDetails.turnAroundTime || "0",
+      // Format dates properly for API
+      const formattedStartDate = formDetails.startDate ? 
+        new Date(formDetails.startDate).toISOString().split('T')[0] + ' 00:00:00.000' :
+        "2024-11-14 05:59:11.803";
+      
+      const formattedEndDate = formDetails.endDate ? 
+        new Date(formDetails.endDate).toISOString().split('T')[0] + ' 00:00:00.000' :
+        "2024-11-24 05:59:11.803";
+        
+      // Use the fixed assignment ID=1 as specified in the URL
+      const assignmentId = 1;
+      
+      // The exact payload structure as specified by the user
+      const taskData = {
+        owner: 1,
+        name: formDetails.taskName || "Draft Task",
+        description: formDetails.description || "Draft description",
+        tat: `${formDetails.turnAroundTime || "2"} MINUTES`,
         tags: "car yam egg",
-        control_measure: formDetails.control || "",
+        control_measure: formDetails.control || "Get a measure",
         status: 1,
-        note: formDetails.note || "",
-        assignment: 6,
-        start_date: formDetails.startDate || "",
-        end_date: formDetails.endDate || ""
+        note: formDetails.note || "12sd",
+        assignment: 6, // Using the exact value provided
+        start_date: formattedStartDate,
+        end_date: formattedEndDate
       };
 
-      console.log('Saving task as draft:', contentData);
+      console.log('Sending draft task data to correct endpoint:', taskData);
+      console.log('Using specific URL: /process/process-assignments/1/process-tasks/');
 
-      if (taskId) {
-        // Update existing task
-        await ProcessService.updateProcessTask(taskId, contentData);
-        dispatchMessage('success', 'Workflow task draft updated successfully');
+      // Call the service with fixed assignment ID=1
+      const result = await ProcessService.addProcessTask(1, taskData);
+
+      // Create new draft task object
+      const newTask = {
+        ...taskData,
+        id: result.id || Math.floor(Math.random() * 10000), // Simple numeric ID
+        selectedOwners: selectedOwners,
+        turnAroundTime: formDetails.turnAroundTime || "2",
+        statusName: 'Pending',
+        start_date: formattedStartDate, // Use formatted date
+        end_date: formattedEndDate, // Use formatted date
+        startDate: formattedStartDate, // Include both versions for consistency
+        endDate: formattedEndDate, // Include both versions for consistency
+        taskName: formDetails.taskName || "Draft Task" // Add taskName for consistency
+      };
+      
+      console.log("New draft task created:", newTask);
+      
+      // Check if addTaskToWorkflow is a function before calling it
+      if (typeof addTaskToWorkflow === 'function') {
+        // Always add as new task when saving as draft
+        addTaskToWorkflow(newTask);
+        // Use consistent message format and log the message dispatching
+        console.log("Dispatching success message: Task draft saved successfully!");
+        dispatchMessage('success', 'Task draft saved successfully!');
+        // Show debug alert as backup
+        showDebugAlert('Task draft saved successfully!');
       } else {
-        // Create new task
-        await ProcessService.addProcessTask(contentData);
-        dispatchMessage('success', 'Workflow task draft saved successfully');
+        console.error("addTaskToWorkflow is not a function", addTaskToWorkflow);
+        dispatchMessage('error', 'Could not save draft task to workflow');
+        // Show debug alert as backup
+        showDebugAlert('Error: Could not save draft task to workflow');
       }
-
-      // Update the workflow steps UI only if we have the minimum required data
-      if (formDetails.taskName) {
-        const uiData = {
-          task: formDetails.taskName,
-          tat: formDetails.turnAroundTime ? formDetails.turnAroundTime + " Hours" : "",
-          status: formDetails.statusName || "",
-          startDate: formDetails.startDate || "",
-          endDate: formDetails.endDate || "",
-          owners: selectedOwners.map(owner => owner.text),
-          description: formDetails.description || "",
-          note: formDetails.note || "",
-          control: formDetails.control || "",
-        };
-        
-        setWorkflowSteps(prevSteps => {
-          if (taskId) {
-            // Update existing step
-            return prevSteps.map(step => 
-              step.id === taskId ? uiData : step
-            );
-          }
-          // Add new step
-          return [...prevSteps, uiData];
-        });
+      
+      // Close form regardless
+      if (typeof setShowWorkflowForm === 'function') {
+        setShowWorkflowForm(false);
+      } else if (typeof closeForm === 'function') {
+        closeForm();
       }
-
-      // Don't close the form when saving as draft
-      dispatchMessage('success', 'Draft saved successfully!');
+      
+      onAfterSave();
     } catch (error) {
-      console.error("Error saving workflow task draft:", error);
-      let errorMessage = taskId ? 'Failed to update workflow task draft. ' : 'Failed to save workflow task draft. ';
+      console.error('Error saving task draft:', error);
+      let errorMessage = 'Failed to save draft. ';
       
       if (error.response?.data?.message) {
         errorMessage += error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage += 'Please check if all required fields are filled correctly.';
       } else if (error.response?.status === 404) {
         errorMessage += 'Task endpoint not found.';
-      } else if (error.response?.status === 400) {
-        errorMessage += 'Please check if all fields are filled correctly.';
       } else {
-        errorMessage += 'An unexpected error occurred.';
+        errorMessage += error.message || 'An unexpected error occurred.';
       }
       
       dispatchMessage('error', errorMessage);
+      // Show debug alert for error
+      showDebugAlert('Error: ' + errorMessage);
     }
   };
 
@@ -302,9 +423,20 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
       ...formDetails,
       selectedOwners
     };
-    setShowWorkflowForm(false);
-    if (typeof savedFormData === 'function') {
-      savedFormData(currentFormState);
+    
+    // Save form state if the function is provided
+    if (typeof saveFormState === 'function') {
+      console.log("Saving form state before going back:", currentFormState);
+      saveFormState(currentFormState);
+    } else {
+      console.log("saveFormState is not a function or not provided");
+    }
+    
+    // Close the form regardless
+    if (typeof setShowWorkflowForm === 'function') {
+      setShowWorkflowForm(false);
+    } else if (typeof closeForm === 'function') {
+      closeForm();
     }
   };
 
@@ -314,7 +446,7 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
   }
 
   return (
-    <div className="bg-white mt-4 p-7 pt-4 border border-[#CCC] w-full flex flex-col gap-6 rounded-lg relative">
+    <div className="bg-white mt-4 p-7 pt-4 border border-[#CCC] w-full max-w-4xl mx-auto flex flex-col gap-6 rounded-lg relative">
       <div className="w-full items-center gap-4 pt-3">
         <Field
           {...{
@@ -345,7 +477,7 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
       <div className="gap-5 pt-5">
         <p className="pb-4">Turn around Time <span className="text-red-500">*</span></p>
         <div className="flex gap-3">
-          <div className="relative">
+          <div className="relative w-1/3">
             <input
               type="number"
               name="turnAroundTime"
@@ -354,7 +486,7 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
               onChange={handleInputChange}
               className={`bg-white border ${errors.turnAroundTime ? 'border-red-500' : 'border-[#79747E]'} shadow max-w-[100px] px-2 py-2 rounded-lg`}
             />
-            <span className="ml-2">Hours</span>
+            <span className="ml-2">Minutes</span>
             {errors.turnAroundTime && (
               <p className="text-red-500 text-sm mt-1">{errors.turnAroundTime}</p>
             )}
@@ -362,7 +494,7 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
         </div>
       </div>
       
-      <div className="flex gap-3 pt-6">
+      <div className="flex gap-6 pt-6">
         <div className="w-1/2">
           <MultiSelectorDropdown
             allItems={formattedUsers}
@@ -400,13 +532,13 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
         </div>
       </div>
       
-      <div className="flex gap-4 pt-5">
+      <div className="flex gap-6 pt-5">
         <div className="w-1/2">
           <Field
             {...{
               type: "date",
               name: "startDate",
-              value: formDetails.startDate,
+              value: formDetails.startDate, // Use date directly
               label: "Start Date",
               onChange: handleInputChange,
               error: errors.startDate,
@@ -420,7 +552,7 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
             {...{
               type: "date",
               name: "endDate",
-              value: formDetails.endDate,
+              value: formDetails.endDate, // Use date directly
               label: "End Date",
               onChange: handleInputChange,
               error: errors.endDate,
@@ -476,12 +608,12 @@ const WorkflowForm = ({ setWorkflowSteps, setShowWorkflowForm, savedFormData, ta
   );
 };
 
-function HoursDropdown({ categories, selected, onChange }) {
+function MinutesDropdown({ categories, selected, onChange }) {
   const [isCollapsed, setIsCollapsed] = useState(true);
   return (
     <SelectDropdown
       label={""}
-      placeholder={"Hours"}
+      placeholder={"Minutes"}
       items={categories}
       name={"class"}
       selected={selected}

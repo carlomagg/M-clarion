@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import rightArrowIcon from "../../../../../assets/icons/small-right-arrow.svg";
 import SelectDropdown from "../../../../partials/dropdowns/SelectDropdown/SelectDropdown";
 import { useDispatch, useSelector } from "react-redux";
@@ -13,7 +14,7 @@ import {
 } from "../../../../partials/buttons/FormButtons/FormButtons";
 import Review from "./Review";
 
-const ProcessAssignment = () => {
+const ProcessAssignment = ({ fromRiskLog }) => {
   // Form data state
   const [processData, setProcessData] = useState({
     processTab: {
@@ -38,7 +39,15 @@ const ProcessAssignment = () => {
     }
   });
 
-  const [activeTab, setActiveTab] = useState("Process Tab");
+  const [activeTab, setActiveTab] = useState("Process Details");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { showAssignedProcess } = useSelector((state) => state.global);
+  
+  // Check if we're coming directly from the process assignment menu
+  // If we have showAssignedProcess = false, it means we came directly from the menu
+  // and not from clicking a process in the selection table
+  const fromDirectMenu = location.pathname === "/process-management/assign" && !showAssignedProcess;
 
   const updateProcessData = (tab, data) => {
     setProcessData(prev => ({
@@ -56,22 +65,23 @@ const ProcessAssignment = () => {
 
   const tabToRender = () => {
     switch (activeTab) {
-      case "Process Tab":
+      case "Process Details":
         return <ProcessTab 
           setActiveTab={setActiveTab}
           formData={processData.processTab}
           updateFormData={(data) => updateProcessData('processTab', data)}
+          fromRiskLog={fromRiskLog}
         />;
       case "Task And Workflow":
         return <TaskAndWorkflow 
           setActiveTab={setActiveTab}
-          formData={processData.taskWorkflow}
+          formData={processData}
           updateFormData={(data) => updateProcessData('taskWorkflow', data)}
         />;
       case "Flow Chart":
         return <FlowChart 
           setActiveTab={setActiveTab}
-          formData={processData.flowChart}
+          formData={processData}
           updateFormData={(data) => updateProcessData('flowChart', data)}
         />;
       case "Review":
@@ -87,24 +97,53 @@ const ProcessAssignment = () => {
 
   const dispatch = useDispatch();
 
-  const handleBackorDiscard = () => {
-    dispatch(hideAssignedProcess());
-  };
+  // If we directly access process assignment page, redirect to process selector
+  useEffect(() => {
+    if (fromDirectMenu) {
+      navigate('/process-management/assign');
+    }
+  }, [fromDirectMenu, navigate]);
 
   return (
     <>
       <div className="w-full p-6 mt-4 flex flex-col gap-4">
-        <div className="bg-white p-1 rounded-lg border border-[#CCC]">
+        <div className="flex justify-between px-16 mb-6">
+          <div className={`flex items-center ${activeTab === "Process Details" ? 'text-pink-500' : 'text-gray-400'}`}>
+            <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-lg 
+              ${activeTab === "Process Details" ? 'bg-pink-600 border-pink-600 text-white' : 'border-gray-400'}`}>
+              1
+            </div>
+          </div>
+          <div className={`flex items-center ${activeTab === "Task And Workflow" ? 'text-pink-500' : 'text-gray-400'}`}>
+            <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-lg 
+              ${activeTab === "Task And Workflow" ? 'bg-pink-600 border-pink-600 text-white' : 'border-gray-400'}`}>
+              2
+            </div>
+          </div>
+          <div className={`flex items-center ${activeTab === "Flow Chart" ? 'text-pink-500' : 'text-gray-400'}`}>
+            <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-lg 
+              ${activeTab === "Flow Chart" ? 'bg-pink-600 border-pink-600 text-white' : 'border-gray-400'}`}>
+              3
+            </div>
+          </div>
+          <div className={`flex items-center ${activeTab === "Review" ? 'text-pink-500' : 'text-gray-400'}`}>
+            <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-lg 
+              ${activeTab === "Review" ? 'bg-pink-600 border-pink-600 text-white' : 'border-gray-400'}`}>
+              4
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-1 rounded-lg border border-[#CCC] w-full">
           <ul className="flex gap-6">
             <li
               className={`p-3 font-medium text-center text-sm rounded-md grow cursor-pointer ${
-                activeTab === "Process Tab"
+                activeTab === "Process Details"
                   ? "text-text-pink bg-text-pink/15"
                   : "text-[#656565]"
               }`}
-              onClick={() => setActiveTab("Process Tab")}
+              onClick={() => setActiveTab("Process Details")}
             >
-              Process Tab
+              Process Details
             </li>
             <img src={rightArrowIcon} alt="" className="shrink" />
             <li

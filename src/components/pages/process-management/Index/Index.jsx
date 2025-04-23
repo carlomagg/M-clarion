@@ -174,6 +174,84 @@ const Index = () => {
   });
   console.log("processlog", processDataLog);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedStatus, selectedDate]);
+  
+  // Helper function to check if process dates match the filter
+  const processDatesMatchFilter = (process, dateFilter) => {
+    // Get all possible date fields
+    const dateFields = ['created_at', 'created_date', 'date_created', 'start_date', 'updated_at'];
+    
+    // Try each field until we find a match
+    for (const field of dateFields) {
+      if (process[field]) {
+        const processDate = new Date(process[field]);
+        if (!isNaN(processDate.getTime())) {
+          // Format to YYYY-MM-DD for comparison
+          const processDateStr = processDate.toISOString().split('T')[0];
+          if (processDateStr === dateFilter) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  };
+
+  // Helper function for more robust status matching
+  const processStatusMatchesFilter = (process, statusFilter) => {
+    if (!process.status) return false;
+    
+    const processStatusLower = process.status.toLowerCase();
+    const filterStatusLower = statusFilter.toLowerCase();
+    
+    // Direct match
+    if (processStatusLower === filterStatusLower) return true;
+    
+    // Check common variations
+    const statusMappings = {
+      'active': ['active', 'activated', 'running', 'live'],
+      'draft': ['draft', 'drafting', 'saved draft'],
+      'pending': ['pending', 'awaiting', 'waiting', 'in progress'],
+      'completed': ['completed', 'complete', 'done', 'finished']
+    };
+    
+    // Check if selected status maps to any variations that match the process status
+    for (const [key, variations] of Object.entries(statusMappings)) {
+      if (key === filterStatusLower && variations.includes(processStatusLower)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Filter processes based on search term, date and status
+  const filteredProcesses = React.useMemo(() => {
+    if (!processDataLog?.Processes) return [];
+    
+    return processDataLog.Processes.filter(process => {
+      if (!process) return false;
+      
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        (process.id && process.id.toString().toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (process.name && process.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (process.type && process.type.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Date filter - check various possible date fields
+      const matchesDate = !selectedDate || processDatesMatchFilter(process, selectedDate);
+      
+      // Status filter - more robust matching
+      const matchesStatus = !selectedStatus || processStatusMatchesFilter(process, selectedStatus);
+      
+      return matchesSearch && matchesDate && matchesStatus;
+    });
+  }, [processDataLog?.Processes, searchTerm, selectedDate, selectedStatus]);
+  
   // Pagination logic
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -186,15 +264,6 @@ const Index = () => {
   const MenuDot = ({ process }) => (
     <div className="absolute top-[100%] right-0 w-[120px] bg-white border shadow-md cursor-pointer border-[#676767] text-black rounded-lg z-10">
       <ul className="w-full">
-        <li
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/process-management/${process.id}/view`);
-          }}
-          className="w-full px-3 py-1.5 hover:bg-gray-100 text-left"
-        >
-          View Details
-        </li>
         <li
           onClick={(e) => {
             e.stopPropagation();
@@ -234,7 +303,7 @@ const Index = () => {
     return <div>Error loading processes</div>;
   }
 
-  const allProcesses = processDataLog?.Processes || [];
+  const allProcesses = filteredProcesses || [];
   const totalPages = Math.ceil(allProcesses.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProcesses = allProcesses.slice(startIndex, startIndex + itemsPerPage);
@@ -264,10 +333,10 @@ const Index = () => {
         </div>
       )}
       
-      <div className={` ${!showImportTab ? "flex" : "hidden"}`}>
+      <div className={`${!showImportTab ? "w-full" : "hidden"}`}>
         <div
           className={`p-10 pt-4 w-full flex flex-col gap-6 ${
-            !showAssignedProcess ? "flex" : "hidden"
+            !showAssignedProcess ? "block" : "hidden"
           }`}
         >
           <PageTitle title={"Process Management"} />
@@ -291,8 +360,8 @@ const Index = () => {
             </div>
           </PageHeader>
           <div
-            className={`mt-4 p-6 flex flex-col gap-6 bg-white rounded-lg border border-[#CCC] ${
-              !showItemForm ? "flex" : "hidden"
+            className={`mt-4 p-6 flex flex-col gap-6 bg-white rounded-lg border border-[#CCC] w-full ${
+              !showItemForm ? "block" : "hidden"
             }`}
           >
             {/* <div className="mt-4 p-6 flex flex-col gap-6 bg-white rounded-lg border border-[#CCC]"> */}
@@ -304,10 +373,10 @@ const Index = () => {
               <div className="w-full relative">
                 <input
                   type="text"
-                  placeholder="Search Incidence using ID, Name, Category"
+                  placeholder="Search Process using ID, Name, Type"
                   className="w-full p-3 pl-10 text-sm text-gray-700 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400"
-                  // value={searchTerm}
-                  // onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
 
                 <img
@@ -329,15 +398,22 @@ const Index = () => {
               <div className="flex gap-4 ">
                 <select
                   className=" p-3 text-sm border-b border-border-gray last:border-none"
-                  // value={selectedDate}
-                  // onChange={(e) => setSelectedDate(e.target.value)}
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
                 >
                   <option value="">Date Created</option>
-                  <option value="2024-11-01">2024-11-01</option>
-                  <option value="2024-11-02">2024-11-02</option>
-                  <option value="2024-11-03">2024-11-03</option>
-                  <option value="2024-11-04">2024-11-04</option>
-                  {/* Add more dates as needed */}
+                  {/* Generate date options for the last 7 days */}
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    const dateStr = date.toISOString().split('T')[0];
+                    const displayDate = date.toLocaleDateString();
+                    return (
+                      <option key={dateStr} value={dateStr}>
+                        {displayDate}
+                      </option>
+                    );
+                  })}
                 </select>
 
                 {/* Priority Dropdown */}
@@ -366,13 +442,14 @@ const Index = () => {
                 {/* Status Dropdown */}
                 <select
                   className="p-3 text-sm border-b border-border-gray "
-                  // value={selectedStatus}
-                  // onChange={(e) => setSelectedStatus(e.target.value)}
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
                 >
                   <option value="">Status</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Draft">Draft</option>
-                  <option value="Pending">Pending</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="COMPLETED">Completed</option>
                 </select>
               </div>
             </div>
@@ -484,7 +561,7 @@ const Index = () => {
             )}
           </div>
         </div>
-        <div className={`${!showItemForm ? "flex" : "hidden"}`}>
+        <div className={`${!showItemForm ? "flex w-full" : "hidden"}`}>
           {/* <ProcessAssignment /> */}
           {showAssignedProcess && <ProcessAssignment />}
         </div>

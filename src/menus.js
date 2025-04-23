@@ -76,20 +76,31 @@ export const SIDEBAR_MENU = [
         ]
     },
     {
-        link: "/process-management",
         text: "Process Management",
         icon: third_parties,
         permission: "process-management",
         module: 'process_management',
         sub_menu: [
             {
-                link: 'enrol',
+                link: '/process-management/log',
+                text: 'Process Log',
+                permission: 'process-management',
+                module: 'process_management'
+            },
+            {
+                link: '/process-management/enrol',
                 text: 'Enrol Process',
                 permission: 'process-management',
                 module: 'process_management'
             },
             {
-                link: 'dashboard',
+                link: '/process-management/assign',
+                text: 'Process Assignment',
+                permission: 'process-management',
+                module: 'process_management'
+            },
+            {
+                link: '/process-management/dashboard',
                 text: 'Process Dashboard',
                 permission: 'process-management',
                 module: 'process_management'

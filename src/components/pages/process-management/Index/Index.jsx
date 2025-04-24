@@ -353,8 +353,15 @@ const Index = () => {
             !showAssignedProcess ? "block" : "hidden"
           }`}
         >
-          <PageTitle title={"Process Management"} />
-          <PageHeader>
+          {/* Custom breadcrumb */}
+          <div className="h-6 bg-[#E5E5E5] text-[#3D3D3D] text-xs py-[2px] px-2 flex gap-2 self-start items-center rounded-[4px] mb-4">
+            <span>Home - Process Management - Process Catalog</span>
+          </div>
+          
+          <PageTitle title={"Process Catalog"} />
+          <div className='h-9 flex relative justify-between'>
+            {/* No breadcrumb here - using custom breadcrumb above */}
+            <div></div>
             <div className="flex gap-3 items-center">
               <>
                 <LinkButton
@@ -372,7 +379,7 @@ const Index = () => {
                 // onClick={ => {}}
               />
             </div>
-          </PageHeader>
+          </div>
           <div
             className={`mt-4 p-6 flex flex-col gap-6 bg-white rounded-lg border border-[#CCC] w-full ${
               !showItemForm ? "block" : "hidden"

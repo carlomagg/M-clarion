@@ -187,12 +187,39 @@ function Breadcrumbs() {
                 label: 'Process Dashboard', 
                 path: '/process-management/dashboard' 
             });
+        } else if (path === '/process-management/log') {
+            parts.push({ 
+                label: 'Process Catalog', 
+                path: '/process-management/log' 
+            });
         } else if (path === '/process-management/enrol') {
             parts.push({ 
                 label: 'Enrol Process', 
                 path: '/process-management/enrol' 
             });
+        } else if (path === '/process-management/assign') {
+            parts.push({ 
+                label: 'Process Assignment', 
+                path: '/process-management/assign' 
+            });
+        } else if (path.includes('/process-management/') && path.includes('/view')) {
+            parts.push({ 
+                label: 'Process Details', 
+                path: path 
+            });
         }
+    }
+    // Process Task Details route
+    else if (path.startsWith('/process/task/')) {
+        parts.push({ 
+            label: 'Process Management', 
+            path: '/process-management' 
+        });
+        
+        parts.push({ 
+            label: 'Task Details', 
+            path: path 
+        });
     }
     
     // Render the breadcrumbs

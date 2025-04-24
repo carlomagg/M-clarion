@@ -89,7 +89,7 @@ export const SIDEBAR_MENU = [
             },
             {
                 link: '/process-management/log',
-                text: 'Process Log',
+                text: 'Process Catalog',
                 permission: 'process-management',
                 module: 'process_management'
             },

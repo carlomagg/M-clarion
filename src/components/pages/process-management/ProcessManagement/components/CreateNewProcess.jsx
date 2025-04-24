@@ -12,6 +12,7 @@ import ProcessQueue from "./ProcessQueue";
 import ProcessService from "../../../../../services/Process.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import useDispatchMessage from "../../../../../hooks/useDispatchMessage";
+import AIProcessOverview from "./AIProcessOverview";
 
 const CreateNewProcess = ({ setProcesses = null, setShowItemForm = null, editProcess = null }) => {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ const CreateNewProcess = ({ setProcesses = null, setShowItemForm = null, editPro
     note: "",
     version: "",
   });
+  const [showAIReview, setShowAIReview] = useState(false);
 
   // Initialize form with edit data if available
   useEffect(() => {
@@ -51,6 +53,34 @@ const CreateNewProcess = ({ setProcesses = null, setShowItemForm = null, editPro
       ...prevForm,
       [name]: value,
     }));
+  };
+
+  // Handle toggling AI Review visibility
+  const handleToggleAIReview = () => {
+    if (!newForm.title) {
+      dispatchMessage('failed', 'Please enter a process title first');
+      return;
+    }
+    setShowAIReview(!showAIReview);
+  };
+
+  // Handle applying AI suggestions
+  const handleApplySuggestions = (suggestions) => {
+    if (suggestions.description) {
+      setNewForm(prev => ({
+        ...prev,
+        description: suggestions.description
+      }));
+    }
+    
+    if (suggestions.tags) {
+      setNewForm(prev => ({
+        ...prev,
+        tag: suggestions.tags
+      }));
+    }
+    
+    dispatchMessage('success', 'AI suggestions applied successfully');
   };
 
   const {
@@ -210,7 +240,10 @@ const CreateNewProcess = ({ setProcesses = null, setShowItemForm = null, editPro
   return (
     <div className="p-10 pt-4 w-full flex flex-col gap-6">
       <div className="flex gap-3">
-        <button className="flex px-4 border text-gray-600 gradient-border">
+        <button 
+          onClick={handleToggleAIReview}
+          className="flex px-4 border text-gray-600 gradient-border"
+        >
           AI Review
         </button>
         <div className="w-full bg-white p-1 flex rounded-lg border border-[#CCC]">
@@ -219,124 +252,134 @@ const CreateNewProcess = ({ setProcesses = null, setShowItemForm = null, editPro
           </button>
         </div>
       </div>
-      <div className="bg-white mt-4 p-7 pt-4 border border-[#CCC] w-full flex flex-col gap-6 rounded-lg relative">
-        <div className="flex flex-wrap items-center space-x-4 mb-4">
-          <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-xs font-semibold">
-            {editProcess ? `PROCESS ID: ${editProcess.id}` : 'New Process'}
-          </span>
-          <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-            Version {newForm.version || '1'}
-          </span>
-          <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-            Date Created: {new Date().toLocaleDateString()}
-          </span>
-          <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-            Last Updated: {new Date().toLocaleDateString()}
-          </span>
-        </div>
-        <div className="gap-6">
-          <Field
-            {...{
-              name: "title",
-              value: newForm.title,
-              label: "Title",
-              onChange: handleInputChange,
-              placeholder: "Enter title name",
-            }}
-          />
-        </div>
-        <div>
-          <CKEField
-            {...{
-              name: "description",
-              label: "Description",
-              value: newForm.description,
-              onChange: handleInputChange,
-            }}
-          />
-        </div>
-        <div className="relative flex gap-4 w-full">
-          <div className="flex flex-col w-1/2">
-            <label htmlFor="processType" className="mb-1">Process type</label>
-            <select
-              id="processType"
-              className="w-full p-3 border-b border-border-gray"
-              value={newForm.processType}
-              name="processType"
-              onChange={(e) => handleInputChange(e)}
-            >
-              {ProcessTypes &&
-                ProcessTypes["Process Types"]?.map((processType, index) => (
-                  <option key={index} value={processType.id}>
-                    {processType.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+      {showAIReview ? (
+        <AIProcessOverview 
+          processTitle={newForm.title} 
+          onClose={() => setShowAIReview(false)}
+          onApplySuggestions={handleApplySuggestions}
+        />
+      ) : (
+        <>
+          <div className="bg-white mt-4 p-7 pt-4 border border-[#CCC] w-full flex flex-col gap-6 rounded-lg relative">
+            <div className="flex flex-wrap items-center space-x-4 mb-4">
+              <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-xs font-semibold">
+                {editProcess ? `PROCESS ID: ${editProcess.id}` : 'New Process'}
+              </span>
+              <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
+                Version {newForm.version || '1'}
+              </span>
+              <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
+                Date Created: {new Date().toLocaleDateString()}
+              </span>
+              <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
+                Last Updated: {new Date().toLocaleDateString()}
+              </span>
+            </div>
+            <div className="gap-6">
+              <Field
+                {...{
+                  name: "title",
+                  value: newForm.title,
+                  label: "Title",
+                  onChange: handleInputChange,
+                  placeholder: "Enter title name",
+                }}
+              />
+            </div>
+            <div>
+              <CKEField
+                {...{
+                  name: "description",
+                  label: "Description",
+                  value: newForm.description,
+                  onChange: handleInputChange,
+                }}
+              />
+            </div>
+            <div className="relative flex gap-4 w-full">
+              <div className="flex flex-col w-1/2">
+                <label htmlFor="processType" className="mb-1">Process type</label>
+                <select
+                  id="processType"
+                  className="w-full p-3 border-b border-border-gray"
+                  value={newForm.processType}
+                  name="processType"
+                  onChange={(e) => handleInputChange(e)}
+                >
+                  {ProcessTypes &&
+                    ProcessTypes["Process Types"]?.map((processType, index) => (
+                      <option key={index} value={processType.id}>
+                        {processType.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
 
-          <div className="w-1/2">
-            <Field
-              {...{
-                name: "processNumber",
-                value: newForm.processNumber,
-                label: "Process Number",
-                onChange: handleInputChange,
-                placeholder: "Enter process number ",
-              }}
-            />
+              <div className="w-1/2">
+                <Field
+                  {...{
+                    name: "processNumber",
+                    value: newForm.processNumber,
+                    label: "Process Number",
+                    onChange: handleInputChange,
+                    placeholder: "Enter process number ",
+                  }}
+                />
+              </div>
+            </div>
+            <div className="w-1/2">
+              <Field
+                {...{
+                  name: "tag",
+                  value: newForm.tag,
+                  label: "Tag",
+                  onChange: handleInputChange,
+                  placeholder: "Enter tag name",
+                }}
+              />
+            </div>
+            <div>
+              <CKEField
+                {...{
+                  name: "note",
+                  value: newForm.note,
+                  label: "Note",
+                  onChange: handleInputChange,
+                }}
+              />
+            </div>
+            <div className="w-1/2">
+              <label htmlFor="">Version</label>
+              <select
+                className=" w-1/2 border-b border-border-gray  "
+                value={newForm.version}
+                name="version"
+                onChange={(e) => handleInputChange(e)}
+              >
+                {ProcessVersion &&
+                  ProcessVersion["Process Versions"]?.map(
+                    (processVersion, index) => (
+                      <option key={index} value={processVersion.id}>
+                        {processVersion?.name}
+                      </option>
+                    )
+                  )}
+              </select>
+            </div>
+            <div className="flex gap-3">
+              <FormCancelButton text={"Discard"} onClick={handleDiscard} />
+              <FormCustomButton
+                text={"save to draft"}
+                onClick={handleSaveToDraft}
+              />
+              <FormProceedButton text={editProcess ? "Update" : "Save"} onClick={handleSave} />
+            </div>
           </div>
-        </div>
-        <div className="w-1/2">
-          <Field
-            {...{
-              name: "tag",
-              value: newForm.tag,
-              label: "Tag",
-              onChange: handleInputChange,
-              placeholder: "Enter tag name",
-            }}
-          />
-        </div>
-        <div>
-          <CKEField
-            {...{
-              name: "note",
-              value: newForm.note,
-              label: "Note",
-              onChange: handleInputChange,
-            }}
-          />
-        </div>
-        <div className="w-1/2">
-          <label htmlFor="">Version</label>
-          <select
-            className=" w-1/2 border-b border-border-gray  "
-            value={newForm.version}
-            name="version"
-            onChange={(e) => handleInputChange(e)}
-          >
-            {ProcessVersion &&
-              ProcessVersion["Process Versions"]?.map(
-                (processVersion, index) => (
-                  <option key={index} value={processVersion.id}>
-                    {processVersion?.name}
-                  </option>
-                )
-              )}
-          </select>
-        </div>
-        <div className="flex gap-3">
-          <FormCancelButton text={"Discard"} onClick={handleDiscard} />
-          <FormCustomButton
-            text={"save to draft"}
-            onClick={handleSaveToDraft}
-          />
-          <FormProceedButton text={editProcess ? "Update" : "Save"} onClick={handleSave} />
-        </div>
-      </div>
-      <div>
-        <ProcessQueue />
-      </div>
+          <div>
+            <ProcessQueue />
+          </div>
+        </>
+      )}
     </div>
   );
 };

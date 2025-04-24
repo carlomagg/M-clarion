@@ -261,9 +261,23 @@ const Index = () => {
 
   const navigate = useNavigate();
 
+  const handleViewDetail = (processId) => {
+    console.log("Viewing details for process:", processId);
+    navigate(`/process-management/${processId}/view`);
+  };
+
   const MenuDot = ({ process }) => (
     <div className="absolute top-[100%] right-0 w-[120px] bg-white border shadow-md cursor-pointer border-[#676767] text-black rounded-lg z-10">
       <ul className="w-full">
+        <li
+          onClick={(e) => {
+            e.stopPropagation();
+            handleViewDetail(process.id);
+          }}
+          className="w-full px-3 py-1.5 hover:bg-gray-100 text-left"
+        >
+          View detail
+        </li>
         <li
           onClick={(e) => {
             e.stopPropagation();

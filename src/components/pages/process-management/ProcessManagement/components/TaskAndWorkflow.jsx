@@ -332,6 +332,7 @@ const TaskAndWorkflow = ({ setActiveTab, formData, updateFormData }) => {
         <WorkflowForm
           formData={formData}
           processId={formData?.processTab?.processNumber}
+          assignmentId={formData?.processTab?.assignmentId}
           workflowSteps={workflowSteps} 
           editingIndex={editingIndex}
           savedFormData={savedWorkflowForm}

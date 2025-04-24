@@ -20,7 +20,12 @@ const showDebugAlert = (message) => {
   alertElement.style.position = 'fixed';
   alertElement.style.bottom = '20px';
   alertElement.style.right = '20px';
-  alertElement.style.backgroundColor = '#4CAF50';
+  
+  // Determine if this is an error message
+  const isError = message.toLowerCase().includes('error');
+  
+  // Set background color based on message type
+  alertElement.style.backgroundColor = isError ? '#F44336' : '#4CAF50'; // Red for errors, green for success
   alertElement.style.color = 'white';
   alertElement.style.padding = '15px';
   alertElement.style.borderRadius = '5px';
@@ -50,13 +55,15 @@ const WorkflowForm = ({
   editingIndex,
   saveFormState,
   workflowSteps,
-  processId: propProcessId
+  processId: propProcessId,
+  assignmentId: propAssignmentId
 }) => {
   // Use passed processId prop if available, otherwise fall back to URL params
   const { id: urlProcessId } = useParams();
   const processId = propProcessId || urlProcessId;
   
   console.log("WorkflowForm - Using processId:", processId);
+  console.log("WorkflowForm - Using assignmentId:", propAssignmentId);
   
   const queryClient = useQueryClient();
   const { dispatchMessage } = useMessage();
@@ -228,10 +235,11 @@ const WorkflowForm = ({
         new Date(formDetails.endDate).toISOString().split('T')[0] + ' 00:00:00.000' :
         "2024-11-24 05:59:11.803";
         
-      // Use the fixed assignment ID as specified in the URL
-      const assignmentId = 1;
+      // Use the assignment ID from props, or try to find it from workflowSteps
+      const assignmentId = propAssignmentId || (workflowSteps && workflowSteps[0]?.assignmentId);
+      console.log("WorkflowForm - Using assignmentId for task:", assignmentId);
       
-      // The exact payload as specified by the user
+      // The payload for the API
       const taskData = {
         owner: 1,
         name: formDetails.taskName,
@@ -241,16 +249,16 @@ const WorkflowForm = ({
         control_measure: formDetails.control || "Get a measure",
         status: 1,
         note: formDetails.note || "12sd",
-        assignment: 6, // Using the exact value provided
+        assignment: assignmentId, // Use the actual assignment ID
         start_date: formattedStartDate,
         end_date: formattedEndDate
       };
 
       console.log('Sending task data to correct endpoint:', taskData);
-      console.log('Using specific URL: /process/process-assignments/1/process-tasks/');
+      console.log(`Using specific URL: /process/process-assignments/${assignmentId}/process-tasks/`);
 
-      // Call the service with the fixed assignment ID=1
-      const result = await ProcessService.addProcessTask(1, taskData);
+      // Call the service with the actual assignment ID
+      const result = await ProcessService.addProcessTask(assignmentId, taskData);
       console.log("Task saved successfully:", result);
 
       // Create the new task object
@@ -334,10 +342,15 @@ const WorkflowForm = ({
         new Date(formDetails.endDate).toISOString().split('T')[0] + ' 00:00:00.000' :
         "2024-11-24 05:59:11.803";
         
-      // Use the fixed assignment ID=1 as specified in the URL
-      const assignmentId = 1;
+      // Use the assignment ID from props, or try to find it from workflowSteps
+      const assignmentId = propAssignmentId || (workflowSteps && workflowSteps[0]?.assignmentId);
+      console.log("WorkflowForm - Using assignmentId for task:", assignmentId);
       
-      // The exact payload structure as specified by the user
+      // Use the assignment ID from props, or try to find it from workflowSteps
+      const draftAssignmentId = propAssignmentId || (workflowSteps && workflowSteps[0]?.assignmentId);
+      console.log("WorkflowForm - Using assignmentId for draft task:", draftAssignmentId);
+      
+      // The payload structure for the API
       const taskData = {
         owner: 1,
         name: formDetails.taskName || "Draft Task",
@@ -347,16 +360,16 @@ const WorkflowForm = ({
         control_measure: formDetails.control || "Get a measure",
         status: 1,
         note: formDetails.note || "12sd",
-        assignment: 6, // Using the exact value provided
+        assignment: draftAssignmentId, // Use the actual assignment ID
         start_date: formattedStartDate,
         end_date: formattedEndDate
       };
 
       console.log('Sending draft task data to correct endpoint:', taskData);
-      console.log('Using specific URL: /process/process-assignments/1/process-tasks/');
+      console.log(`Using specific URL: /process/process-assignments/${draftAssignmentId}/process-tasks/`);
 
-      // Call the service with fixed assignment ID=1
-      const result = await ProcessService.addProcessTask(1, taskData);
+      // Call the service with the actual assignment ID
+      const result = await ProcessService.addProcessTask(draftAssignmentId, taskData);
 
       // Create new draft task object
       const newTask = {

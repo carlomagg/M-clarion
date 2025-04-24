@@ -16,7 +16,12 @@ const showDebugAlert = (message) => {
   alertElement.style.position = 'fixed';
   alertElement.style.bottom = '20px';
   alertElement.style.right = '20px';
-  alertElement.style.backgroundColor = '#4CAF50';
+  
+  // Determine if this is an error message
+  const isError = message.toLowerCase().includes('error');
+  
+  // Set background color based on message type
+  alertElement.style.backgroundColor = isError ? '#F44336' : '#4CAF50'; // Red for errors, green for success
   alertElement.style.color = 'white';
   alertElement.style.padding = '15px';
   alertElement.style.borderRadius = '5px';
@@ -218,14 +223,20 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
       };
       
       // Save to database
-      await ProcessService.addProcessAssignment(contentData);
+      const assignmentResponse = await ProcessService.addProcessAssignment(contentData);
+      console.log("Process Assignment API response:", assignmentResponse);
       
-      // Include the priority explicitly in the update
+      // Get the assignment ID from the response
+      const assignmentId = assignmentResponse?.id || assignmentResponse?.assignment_id;
+      console.log("Retrieved assignment ID:", assignmentId);
+      
+      // Include the priority and assignment ID in the update
       const updatedFormData = {
         ...assignmentForm,
         priority: assignmentForm.priority,
         processType: processType,
-        relatedProcesses: selectedProcesses
+        relatedProcesses: selectedProcesses,
+        assignmentId: assignmentId // Store the assignment ID in the form data
       };
       
       // Update parent form data

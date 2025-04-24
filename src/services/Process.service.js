@@ -642,6 +642,7 @@ class ProcessService {
 
   getProcessTaskOverview = async (processId) => {
     const token = get(ACCESS_TOKEN_NAME);
+
     try {
       console.log(`Fetching task overview for process ID ${processId}...`);
       const result = await axios.get(
@@ -661,6 +662,41 @@ class ProcessService {
       if (error.response) {
         console.error("Response data:", error.response.data);
         console.error("Response status:", error.response.status);
+      }
+      throw error;
+    }
+  };
+
+  getProcessesRequiringAttention = async (count = 5, page = 1) => {
+    const token = get(ACCESS_TOKEN_NAME);
+
+    try {
+      // Ensure both parameters are numbers
+      count = Number(count);
+      page = Number(page);
+      
+      console.log(`API call: Fetching processes requiring attention with count=${count}, page=${page}`);
+      const url = `process/process-definitions/processes-requiring-attention/?count=${count}&page=${page}`;
+      console.log(`URL: ${url}`);
+      
+      const result = await axios.get(
+        url,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('API response:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error("Error fetching processes requiring attention:", error);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Response URL:", error.config.url);
       }
       throw error;
     }

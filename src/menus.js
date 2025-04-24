@@ -82,6 +82,12 @@ export const SIDEBAR_MENU = [
         module: 'process_management',
         sub_menu: [
             {
+                link: '/process-management/dashboard',
+                text: 'Process Dashboard',
+                permission: 'process-management',
+                module: 'process_management'
+            },
+            {
                 link: '/process-management/log',
                 text: 'Process Log',
                 permission: 'process-management',
@@ -96,12 +102,6 @@ export const SIDEBAR_MENU = [
             {
                 link: '/process-management/assign',
                 text: 'Process Assignment',
-                permission: 'process-management',
-                module: 'process_management'
-            },
-            {
-                link: '/process-management/dashboard',
-                text: 'Process Dashboard',
                 permission: 'process-management',
                 module: 'process_management'
             }

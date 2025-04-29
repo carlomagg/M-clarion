@@ -29,6 +29,53 @@ export default function ActionPlanTable({onAddPlan, onRemovePlan, plans, onPlanC
         mutate({...aiSuggestionData, suggestion: promptSuggestion});
     }
 
+    function handleApplySuggestion(suggestion) {
+        try {
+            // Parse the suggested action plans and apply them
+            // AI usually returns action plans in a format like:
+            // 1. Action 1
+            // 2. Action 2
+            // We need to parse this and create new action plan items
+            
+            // Split by numbered items or line breaks
+            const actionItems = suggestion.split(/\n\d+[\.\)]\s|\n-\s/).filter(item => item.trim());
+            
+            // If no proper splitting occurred, try a different approach
+            let parsedItems = actionItems.length > 0 ? actionItems : suggestion.split('\n').filter(item => item.trim());
+            
+            // Remove any remaining numbers at the beginning of items
+            parsedItems = parsedItems.map(item => item.replace(/^\d+[\.\)]\s/, '').trim());
+            
+            // Add each action item to the plan
+            parsedItems.forEach(actionText => {
+                if (actionText) {
+                    // First add a new plan
+                    onAddPlan();
+                    
+                    // Wait a moment for the state to update
+                    setTimeout(() => {
+                        // Get the index of the newly added plan
+                        const newPlanIndex = plans.length;
+                        
+                        // Create an event to set the action text
+                        const event = {
+                            target: {
+                                name: 'action',
+                                value: actionText
+                            }
+                        };
+                        
+                        // Update the action text of the new plan
+                        onPlanChange(event, true, newPlanIndex);
+                    }, 0);
+                }
+            });
+        } catch (error) {
+            console.error("Error applying AI suggestion:", error);
+            setAiError("Error applying the suggestion. Please try again or apply manually.");
+        }
+    }
+
     function createRecordOptions(index) {
         let options = [
             {text: 'Edit', type: 'action', action: () => console.log('edit clicked')},
@@ -46,7 +93,15 @@ export default function ActionPlanTable({onAddPlan, onRemovePlan, plans, onPlanC
                 <h4 className='font-medium'>Action Plan</h4>
                 {
                     editable &&
-                    <AISuggestionBox onFetch={fetchActionPlanSuggestion} isFetching={isPending} error={aiError} content={aiSuggestion} suggestion={promptSuggestion} onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} />
+                    <AISuggestionBox 
+                        onFetch={fetchActionPlanSuggestion} 
+                        onApply={handleApplySuggestion}
+                        isFetching={isPending} 
+                        error={aiError} 
+                        content={aiSuggestion} 
+                        suggestion={promptSuggestion} 
+                        onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} 
+                    />
                 }
             </header>
             <div className='mt-3 overflow-auto p-6 flex flex-col gap-6 rounded-lg border border-[#CCC] text-[#3B3B3B] text-sm'>
@@ -78,6 +133,23 @@ export default function ActionPlanTable({onAddPlan, onRemovePlan, plans, onPlanC
 }
 
 function ActionPlanRow({plan, serialNo, index, onPlanChange, options, editable, users, registerStatuses}) {
+    const handleAssignedToChange = (e) => {
+        // Create a modified event object with the correct structure for assigned_to
+        const modifiedEvent = {
+            target: {
+                name: 'assigned_to',
+                value: { 
+                    id: e.target.value
+                }
+            }
+        };
+        onPlanChange(modifiedEvent, true, index);
+    };
+
+    // Ensure assigned_to exists and has an id property to prevent errors
+    const assignedToId = plan.assigned_to && plan.assigned_to.id !== undefined ? plan.assigned_to.id : '';
+    const assignedToName = plan.assigned_to && plan.assigned_to.name ? plan.assigned_to.name : '';
+
     return (
         <div className="relative">
             <div className='px-4 flex gap-4 items-center'>
@@ -92,9 +164,8 @@ function ActionPlanRow({plan, serialNo, index, onPlanChange, options, editable, 
                 <span className='py-4 flex-[2_0]'>
                     {
                         editable ?
-                        <NameDropdown names={users} selected={plan.assigned_to.id} onChange={(e) => onPlanChange(e, true, index)} /> :
-                        <span>{plan.assigned_to.name}</span>
-
+                        <NameDropdown names={users} selected={assignedToId} onChange={handleAssignedToChange} /> :
+                        <span>{assignedToName}</span>
                     }
                 </span>
                 <span className='py-4 flex-[1_0]'>

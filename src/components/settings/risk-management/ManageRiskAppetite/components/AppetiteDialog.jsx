@@ -105,13 +105,13 @@ export default function RiskAppetiteDialog({context, onRemoveModal}) {
     const error = riskAppetiteQuery.error || riskCategoriesQuery.error || riskBoundariesQuery.error || frequenciesQuery.error || usersQuery.error;
     
     if (isLoading) content = <div>Loading</div>
-    else if (error) content = <div>error</div>
+    else if (error) content = <div>Error loading data: {error.message || "Unknown error"}</div>
     else {
         const appetite = mode === 'view' && riskAppetiteQuery.data;
-        const categories = mode !== 'view' && riskCategoriesQuery.data.map(c => ({id: c.id, text: c.category}));
-        const boundaries = mode !== 'view' && riskBoundariesQuery.data;
-        const frequencies = mode !== 'view' && frequenciesQuery.data.map(f => ({id: f.id, text: f.name}));
-        const users = mode !== 'view' && usersQuery.data.map(u => ({id: u.user_id, text: (!u.firstname || !u.lastname) ? u.email : `${u.firstname} ${u.lastname}`}));
+        const categories = mode !== 'view' && riskCategoriesQuery.data ? riskCategoriesQuery.data.map(c => ({id: c.id, text: c.category})) : [];
+        const boundaries = mode !== 'view' && riskBoundariesQuery.data ? riskBoundariesQuery.data : [];
+        const frequencies = mode !== 'view' && frequenciesQuery.data ? frequenciesQuery.data.map(f => ({id: f.id, text: f.name})) : [];
+        const users = mode !== 'view' && usersQuery.data ? usersQuery.data.map(u => ({id: u.user_id, text: (!u.firstname || !u.lastname) ? u.email : `${u.firstname} ${u.lastname}`})) : [];
 
         content = (mode === 'edit' && isFormPopulated) || mode === 'add' ?
             <>
@@ -121,13 +121,17 @@ export default function RiskAppetiteDialog({context, onRemoveModal}) {
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex flex-col gap-6">
                         <p className="font-medium">Risk Boundary</p>
-                        <div className="flex gap-1">
-                            {
-                                boundaries.map(boundary => {
-                                    return <BoundaryButton key={boundary.id} boundary={boundary} isSelected={formData.risk_boundary_id === boundary.id} onSelect={handleChange} />
-                                })
-                            }
-                        </div>
+                        {boundaries.length === 0 ? (
+                            <div className="text-sm text-yellow-500">No risk boundaries available. Please create risk boundaries first.</div>
+                        ) : (
+                            <div className="flex gap-1">
+                                {
+                                    boundaries.map(boundary => {
+                                        return <BoundaryButton key={boundary.id} boundary={boundary} isSelected={formData.risk_boundary_id === boundary.id} onSelect={handleChange} />
+                                    })
+                                }
+                            </div>
+                        )}
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex gap-6">
@@ -172,85 +176,89 @@ export default function RiskAppetiteDialog({context, onRemoveModal}) {
                 <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Category Name</span>
-                        <p>{appetite.category.name}</p>
+                        <p>{appetite?.category?.name || 'No category'}</p>
                     </div>
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Risk Appetite Statement</span>
-                        <p>{appetite.risk_appetite_statement}</p>
+                        <p>{appetite?.risk_appetite_statement || 'No statement'}</p>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Risk Boundary</span>
                         <div className="w-1/3 flex">
-                            <BoundaryButton boundary={appetite.boundary} isSelected={true} />
+                            {appetite?.boundary ? (
+                                <BoundaryButton boundary={appetite.boundary} isSelected={true} />
+                            ) : (
+                                <p>No boundary defined</p>
+                            )}
                         </div>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex gap-6">
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Acceptable Level</span>
-                            <p>{appetite.acceptable_level}</p>
+                            <p>{appetite?.acceptable_level || 'No level'}</p>
                         </div>
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Acceptable Frequency</span>
-                            <p>{appetite.acceptable_frequency.name}</p>
+                            <p>{appetite?.acceptable_frequency?.name || 'No frequency'}</p>
                         </div>
                     </div>
                     <div className="flex gap-6">
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Trigger</span>
-                            <p>{appetite.trigger}</p>
+                            <p>{appetite?.trigger || 'No trigger'}</p>
                         </div>
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Trigger Frequency</span>
-                            <p>{appetite.trigger_frequency.name}</p>
+                            <p>{appetite?.trigger_frequency?.name || 'No frequency'}</p>
                         </div>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex gap-6">
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Applicable Year</span>
-                            <p>{appetite.applicable_year}</p>
+                            <p>{appetite?.applicable_year || 'No year'}</p>
                         </div>
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Reporting Frequency</span>
-                            <p>{appetite.reporting_frequency.name}</p>
+                            <p>{appetite?.reporting_frequency?.name || 'No frequency'}</p>
                         </div>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Owner</span>
-                        <p>{appetite.owner.name}</p>
+                        <p>{appetite?.owner?.name || 'No owner'}</p>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Control Measures</span>
-                        <p>{appetite.control_measures}</p>
+                        <p>{appetite?.control_measures || 'No measures'}</p>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Mitigation Plan</span>
-                        <p>{appetite.mitigation_plan}</p>
+                        <p>{appetite?.mitigation_plan || 'No plan'}</p>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Note</span>
-                        <p>{appetite.risk_appetite_note}</p>
+                        <p>{appetite?.risk_appetite_note || 'No note'}</p>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex flex-col gap-3">
                         <span className="font-medium">Evidence</span>
-                        <p>{appetite.evidence}</p>
+                        <p>{appetite?.evidence || 'No evidence'}</p>
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div className="flex gap-6">
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Approved By</span>
-                            <p>{appetite.approved_by.name}</p>
+                            <p>{appetite?.approved_by?.name || 'No approver'}</p>
                         </div>
                         <div className="flex flex-col gap-3 flex-1">
                             <span className="font-medium">Date Approved</span>
-                            <p>{appetite.date_approved}</p>
+                            <p>{appetite?.date_approved || 'No date'}</p>
                         </div>
                     </div>
                 </div>
@@ -308,7 +316,20 @@ function FrequenciesDropdown({name, label, frequencies, selected, onSelect}) {
 }
 
 function BoundaryButton({boundary, isSelected, onSelect}) {
+    if (!boundary) {
+        return <div className="max-w-52 flex-1 h-16 grid place-items-center text-lg bg-gray-200 text-gray-400">No boundary data</div>;
+    }
+    
+    const handleClick = onSelect ? () => onSelect({target: {name: 'risk_boundary_id', value: boundary.id}}) : undefined;
+    
     return (
-        <button onClick={() => onSelect({target: {name: 'risk_boundary_id', value: boundary.id}})} type="button" className={`max-w-52 flex-1 h-16 grid place-items-center text-lg ${isSelected ? 'bg-text-pink text-white' : 'bg-[#D9D9D9] text-black'}`}>{boundary.description}</button>
+        <button 
+            onClick={handleClick} 
+            type="button" 
+            disabled={!onSelect}
+            className={`max-w-52 flex-1 h-16 grid place-items-center text-lg ${isSelected ? 'bg-text-pink text-white' : 'bg-[#D9D9D9] text-black'}`}
+        >
+            {boundary.description || 'Unnamed boundary'}
+        </button>
     );
 }

@@ -153,25 +153,71 @@ function Breadcrumbs() {
     }
     // Risks section
     else if (path.startsWith('/risks')) {
-        parts.push({ 
-            label: 'Risk', 
-            path: '/risks' 
-        });
-        
-        if (path === '/risks/dashboard') {
-            parts.push({ 
-                label: 'Dashboard', 
-                path: '/risks/dashboard' 
+        // Check if this is the risk register (index) page
+        if (path === '/risks') {
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
+            });
+            
+            parts.push({
+                label: 'Risk Register', 
+                path: '/risks' 
+            });
+        } else if (path === '/risks/dashboard') {
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
+            });
+            
+            parts.push({
+                label: 'Dashboard',
+                path: '/risks/dashboard'
             });
         } else if (path.includes('/risks/register')) {
-            parts.push({ 
-                label: 'Risk Register', 
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
+            });
+            
+            parts.push({
+                label: 'Enrol Risk', 
                 path: path 
             });
         } else if (path.includes('/risks/') && path.includes('/update')) {
-            parts.push({ 
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
+            });
+            
+            parts.push({
                 label: 'Update Risk', 
                 path: path 
+            });
+        } else if (path === '/risks/approve') {
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
+            });
+            
+            parts.push({
+                label: 'Risk Approval',
+                path: '/risks/approve'
+            });
+        } else if (path === '/risks/follow-up') {
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
+            });
+            
+            parts.push({
+                label: 'Follow Up',
+                path: '/risks/follow-up'
+            });
+        } else {
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
             });
         }
     }
@@ -226,14 +272,17 @@ function Breadcrumbs() {
     return (
         <div className='h-6 bg-[#E5E5E5] text-[#3D3D3D] text-xs py-[2px] px-2 flex gap-2 self-center items-center rounded-[4px]'>
             {parts.map((part, index) => {
+                // Generate a unique key using both path and index
+                const uniqueKey = `${part.path}-${index}`;
+                
                 return index < parts.length - 1 ? 
-                (<React.Fragment key={part.path}>
+                (<React.Fragment key={uniqueKey}>
                     <NavLink to={part.path}>
                         {part.label}
                     </NavLink>
                     <span className='text-[#3D3D3D]'>-</span>
                 </React.Fragment>) :
-                <span key={part.path}>{part.label}</span>
+                <span key={uniqueKey}>{part.label}</span>
             })}
         </div>
     );

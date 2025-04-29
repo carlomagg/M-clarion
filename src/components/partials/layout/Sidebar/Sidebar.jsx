@@ -51,60 +51,42 @@ function Sidebar() {
 function LinkItem({ item, classes = '', parentPath = '' }) {
     const user = useUser();
     const [isCollapsed, setIsCollapsed] = useState(true);
+    const location = useLocation();
 
     if (item.permission && !user.hasPermission(item.permission)) return null;
 
     const resolvedPath = parentPath ? `${parentPath}/${item.link}` : (item.link || '');
-
-    // if has children, expand the item if one of its children is active else collapse it
-    const { pathname } = useLocation();
-
     const isLink = !!item.link;
     const isChild = !!parentPath;
     
-    // Remove query parameters from current path for comparison
-    const normalizedPathname = pathname.split('?')[0];
+    // Check if this is a risk management related item
+    const isRiskItem = item.module === 'risk_management' || 
+                       (isChild && parentPath.includes('risks')) || 
+                       (isLink && item.link.includes('risks'));
     
-    // Remove query parameters from menu item path
-    const normalizedItemLink = item.link ? item.link.split('?')[0] : '';
+    // Clean paths for comparison
+    const currentPath = location.pathname;
     
-    // Check if this menu item is active - more strict matching to avoid false positives
-    const isActive = isChild ?
-        normalizedPathname === resolvedPath.split('?')[0] :
-        (item.link === '/' ? 
-            normalizedPathname === '/' : 
-            (item.exact ? 
-                normalizedPathname === normalizedItemLink : 
-                normalizedPathname.startsWith(normalizedItemLink) && 
-                // Make sure this isn't just a partial match with a common prefix
-                (normalizedItemLink !== '' && 
-                 (normalizedPathname === normalizedItemLink || 
-                  normalizedPathname.startsWith(normalizedItemLink + '/')))
-            )
-        );
-
-    // Check if any child is active - more precise check
+    // Special case for Risk Register at '/risks'
+    const isRiskRegister = isLink && item.link === '/risks';
+    
+    // Determine if child items are active
     const childIsActive = item.sub_menu && item.sub_menu.some(child => {
-        const childLink = child.link ? child.link.split('?')[0] : '';
-        const childFullPath = isLink ? 
-            `${resolvedPath.split('?')[0]}/${childLink}` : 
-            childLink;
-            
-        // Check if pathname exactly matches or is a direct child of this menu item
-        return normalizedPathname === childFullPath || 
-               (childFullPath !== '' && normalizedPathname.startsWith(childFullPath + '/'));
+        const childPath = isLink 
+            ? `${resolvedPath}/${child.link}`.replace(/\/+/g, '/')  // For nested paths
+            : child.link;
+        
+        return location.pathname.startsWith(childPath);
     });
 
-    // Only update collapse state when pathname changes, not on every render
+    // Only update collapse state when pathname changes
     useEffect(() => {
-        if (isActive || childIsActive) {
+        if (childIsActive || 
+            (isLink && currentPath.startsWith(resolvedPath) && 
+             (resolvedPath !== '/risks' || currentPath === '/risks'))) {
             setIsCollapsed(false);
         }
-        // Don't auto-collapse when navigating away - let user control this
-        // Only open menus where the active page is found
-    }, [pathname]);
-
-    const coloredText = isChild && isActive || (isActive && !childIsActive) || false;
+    }, [location.pathname]);
 
     return (
         <div className={`flex flex-col ${classes}`}>
@@ -116,10 +98,20 @@ function LinkItem({ item, classes = '', parentPath = '' }) {
                 }
                 {
                     item.link ?
-                        <NavLink to={resolvedPath} className={`${coloredText ? 'hover:text-text-pink text-text-pink' : 'hover:text-text-pink'}`}>
+                        <NavLink 
+                            to={resolvedPath} 
+                            className={({ isActive }) => 
+                                isActive ? 'hover:text-text-pink text-text-pink' : 'hover:text-text-pink'
+                            }
+                            end={isRiskRegister} // Only add 'end' prop specifically for the Risk Register item
+                        >
                             {item.text}
                         </NavLink> :
-                        <button type="button" onClick={() => setIsCollapsed(!isCollapsed)} className={`${coloredText ? 'hover:text-text-pink text-text-pink' : 'hover:text-text-pink'}`}>
+                        <button 
+                            type="button" 
+                            onClick={() => setIsCollapsed(!isCollapsed)} 
+                            className={`${childIsActive ? 'hover:text-text-pink text-text-pink' : 'hover:text-text-pink'}`}
+                        >
                             {item.text}
                         </button>
                 }

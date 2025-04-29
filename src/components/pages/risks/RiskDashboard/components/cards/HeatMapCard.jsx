@@ -38,31 +38,28 @@ export default function HeatMapCard() {
         return <Error classes={'p-6'} />
     }
 
-    const boundaries = riskBoundariesQuery.data;
-    const matrixSize = riskMatrixSizeQuery.data;
+    // Ensure data exists and default to empty array if not
+    const boundaries = riskBoundariesQuery.data || [];
+    const matrixSize = riskMatrixSizeQuery.data || 5; // Default to 5x5 matrix if no size specified
 
     return (
-        <Widget classes={`flex flex-col gap-4 p-6`}>
-            <div className="flex justify-between items-center self-stretch">
-                <div className="flex gap-3 items-center">
-                    <h4 className="font-medium text-sm whitespace-nowrap">Heat Map(56):</h4>
-                    {/* <Dropdown items={['All', 'Some', 'Few']} selected={'All'} onSelect={() => {}} hasBorder={true} /> */}
+        <Widget
+            title={'Risk Heat Map'}
+            className={'flex-1 py-3 '}
+            rightContent={
+                <div className='flex gap-4 items-center'>
+                    <OptionsDropdown
+                        className={'p-1 hover:bg-[#EFEFEF] rounded-full mr-2'}
+                        options={[
+                            { text: 'Edit', type: 'action', action: () => { } },
+                        ]}
+                    />
                 </div>
-                <div className="flex gap-3 items-center">
-                    <OptionsDropdown options={[{type: 'action', text: isCollapsed ? 'Expand' :'Collapse', action: () => setIsCollapsed(!isCollapsed)}]} />
-                </div>
-            </div>
-            <hr className={`border border-[#CCC] self-stretch ${isCollapsed ? 'hidden' : ''}`} />
-            {
-                !isCollapsed &&
-                <>
-                    <div>
-                        <RiskHeatmapContext.Provider value={{levels: boundaries, size: matrixSize}}>
-                            <RiskEvaluationHeatMap selected={selected}/>
-                        </RiskHeatmapContext.Provider>
-                    </div>
-                </>
             }
+        >
+            <RiskHeatmapContext.Provider value={{ levels: boundaries, size: matrixSize }}>
+                <RiskEvaluationHeatMap selected={selected} />
+            </RiskHeatmapContext.Provider>
         </Widget>
     );
 }

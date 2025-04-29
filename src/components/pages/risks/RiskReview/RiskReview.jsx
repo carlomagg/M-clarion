@@ -11,35 +11,89 @@ import ActionsDropdown from '../../../partials/dropdowns/ActionsDropdown/Actions
 import LinkButton from '../../../partials/buttons/LinkButton/LinkButton';
 import Review from '../../../partials/forms/risk-register/RiskReview/RiskReview';
 import { createPortal } from 'react-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useDeleteRisk } from '../../../../queries/risks/risk-queries';
+import useDispatchMessage from '../../../../hooks/useDispatchMessage';
+import { useQueryClient } from '@tanstack/react-query';
 
 function RiskReview() {
     const [isPanelVisible, setIsPanelVisible] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const dispatchMessage = useDispatchMessage();
+    const queryClient = useQueryClient();
+    
+    // Set up delete risk mutation
+    const { isPending: isDeleting, mutate: deleteRisk } = useDeleteRisk({
+        onSuccess: async (data) => {
+            await queryClient.invalidateQueries({queryKey: ['risks']});
+            dispatchMessage('success', 'Risk deleted successfully');
+            navigate('/risks');
+        },
+        onError: (error) => {
+            dispatchMessage('failed', error.response?.data?.message || 'Failed to delete risk');
+        }
+    });
+    
+    // Handle delete confirmation
+    const handleDeleteConfirm = () => {
+        deleteRisk(id);
+        setShowDeleteConfirm(false);
+    };
+    
     const actions = [
         {text: 'Import', icon: importIcon, type: 'link', link: 'add-multiple-users?m=file', permission: 'add_mulitple_users_file'},
         {text: 'Export', icon: exportIcon, type: 'link', link: 'add-multiple-users?m=email', permission: 'add_multiple_users_emails'},
-        {text: 'Delete', icon: deleteIcon, type: 'link', link: 'add-active-directory', permission: 'add_active_directory'}
+        {text: 'Edit', icon: null, type: 'link', link: `/risks/${id}/update?section=identification`, permission: 'edit_risk'},
+        {text: 'Delete', icon: deleteIcon, type: 'action', action: () => setShowDeleteConfirm(true), permission: 'delete_risk'}
     ];
 
     return (
-        <div className={`p-10 pt-4 max-w-7xl flex-1 flex flex-col gap-6 ${isPanelVisible && 'mr-96'}`}>
-            {isPanelVisible && <SidePanel onHideSidePanel={() => setIsPanelVisible(false)} />}
-            <PageTitle title={'Page title'} />
+        <div className='p-10 pt-4 max-w-7xl flex flex-col gap-6'>
+            <PageTitle title={'Risk Details'} />
             <PageHeader>
-                <div className='flex gap-4'>
+                <div className='flex gap-3'>
                     <ActionsDropdown label={'Actions'} items={actions} />
-                    {
-                        !isPanelVisible &&
-                        <LinkButton onClick={() => setIsPanelVisible(!isPanelVisible)} permission={'add_new_user'} icon={panelToggleIcon} text={'Open Side Panel'} />
-                    }
+                    <button onClick={() => setIsPanelVisible(!isPanelVisible)} className={styles.panelToggleButton}>
+                        <img src={panelToggleIcon} alt="" className='w-6 h-6' />
+                    </button>
                 </div>
             </PageHeader>
-            <div className=''> {/* main content container */}
-                <div className='mt-4 flex flex-col gap-6'>
+            <div className='mt-4'> {/* main content container */}
+                <section>
                     <Review mode={'standalone'} />
-                </div>
+                </section>
             </div>
+            
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && createPortal(
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                    <div className="bg-white p-6 rounded-lg max-w-md w-full">
+                        <h3 className="text-xl font-semibold mb-4">Confirm Delete</h3>
+                        <p className="mb-6">Are you sure you want to delete this risk? This action cannot be undone.</p>
+                        <div className="flex justify-end gap-4">
+                            <button 
+                                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700"
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={isDeleting}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                className="px-4 py-2 bg-red-600 text-white rounded-md"
+                                onClick={handleDeleteConfirm}
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
-    )
+    );
 }
 
 function SidePanel({onHideSidePanel}) {

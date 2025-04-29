@@ -263,7 +263,7 @@ const Index = () => {
 
   const handleViewDetail = (processId) => {
     console.log("Viewing details for process:", processId);
-    navigate(`/process-management/${processId}/view`);
+    navigate(`/process-management/${processId}/view`, { state: { from: 'catalog' } });
   };
 
   const MenuDot = ({ process }) => (

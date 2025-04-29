@@ -26,9 +26,27 @@ export default function RecommendedControlField({value, onChange, riskName, risk
         mutate({risk: riskName, risk_response: riskResponse, control_family: riskFamily, suggestion: promptSuggestion});
     }
 
+    function handleApplySuggestion(suggestion) {
+        onChange({
+            target: {
+                name: 'recommended_control',
+                value: suggestion
+            }
+        });
+    }
+
     return (
         <CKEAIField {...{name: 'recommended_control', label: 'Recommended Control', value, onChange, error: null}}>
-            <AISuggestionBox style={{position: 'absolute', bottom: '1rem', right: '1rem'}} onFetch={fetchRiskDescriptionSuggestion} isFetching={isPending} error={aiError} content={aiSuggestion} suggestion={promptSuggestion} onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} />
+            <AISuggestionBox 
+                style={{position: 'absolute', bottom: '1rem', right: '1rem'}} 
+                onFetch={fetchRiskDescriptionSuggestion} 
+                onApply={handleApplySuggestion}
+                isFetching={isPending} 
+                error={aiError} 
+                content={aiSuggestion} 
+                suggestion={promptSuggestion} 
+                onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} 
+            />
         </CKEAIField>
     );
 }

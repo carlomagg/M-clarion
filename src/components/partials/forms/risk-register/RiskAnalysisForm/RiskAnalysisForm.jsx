@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FormCancelButton, FormCustomButton, FormProceedButton } from '../../../buttons/FormButtons/FormButtons';
 import styles from './RiskAnalysisForm.module.css';
 import RiskEvaluationHeatMap, { RiskHeatmapContext } from '../components/RiskEvaluationHeatMap';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { impactFocusesOptions, impactScoresOptions, likelihoodScoresOptions, riskAnalysisOptions, useSaveRiskAnalysisToDraft, useUpdateRiskAnalysis } from '../../../../../queries/risks/risk-queries';
 import SelectDropdown from '../../../dropdowns/SelectDropdown/SelectDropdown';
@@ -13,9 +13,10 @@ import ImpactSelector from '../components/ImpactSelector';
 import { riskBoundariesOptions } from '../../../../../queries/risks/risk-boundaries';
 import { riskMatrixSizeOptions } from '../../../../../queries/risks/risk-likelihood-matrix';
 
-function RiskAnalysisForm({}) {
+function RiskAnalysisForm({mode}) {
     const [searchParams, setSearchParams] = useSearchParams();
-    const riskID = searchParams.get('id');
+    const params = useParams();
+    const riskID = mode === 'update' ? params.id : searchParams.get('id');
     const navigate = useNavigate();
     const dispatchMessage = useDispatchMessage();
     const queryClient = useQueryClient();
@@ -32,16 +33,27 @@ function RiskAnalysisForm({}) {
         inherent_likelihood_score: '',
         inherent_impact_score: '',
         inherent_risk_rating: '',
-        impact_focus_id: ''
+        impact_focus_id: '',
+        // Still keep residual risk in the data structure for API compatibility
+        // but don't display it in the UI
+        residual_risk_likelihood_score: '',
+        residual_risk_impact_score: '',
+        residual_risk_rating: '',
     });
 
-    // update risk rating when likelihood or impact score changes
+    // update inherent risk rating when likelihood or impact score changes
     useEffect(() => {
         const likelihood = formData.inherent_likelihood_score;
         const impact = formData.inherent_impact_score;
 
         if (likelihood && impact) {
-            setFormData({...formData, inherent_risk_rating: Number(likelihood) * Number(impact)});
+            const inherentRiskRating = Number(likelihood) * Number(impact);
+            
+            // Only update the inherent risk rating
+            setFormData(prevData => ({
+                ...prevData, 
+                inherent_risk_rating: inherentRiskRating,
+            }));
         }
     }, [formData.inherent_likelihood_score, formData.inherent_impact_score]);
 
@@ -61,13 +73,58 @@ function RiskAnalysisForm({}) {
     useEffect(() => {
         if (riskAnalysisQuery.data) {
             const details = riskAnalysisQuery.data;
+            // Parse the inherent risk rating value
+            let inherentRiskRating = '';
+            if (details.inherent_risk_rating) {
+                if (typeof details.inherent_risk_rating === 'object' && details.inherent_risk_rating.score !== undefined) {
+                    inherentRiskRating = details.inherent_risk_rating.score;
+                } else {
+                    inherentRiskRating = details.inherent_risk_rating;
+                }
+            } else if (details.inherent_risk_likelihood_score && details.inherent_risk_impact_score) {
+                inherentRiskRating = Number(details.inherent_risk_likelihood_score) * Number(details.inherent_risk_impact_score);
+            }
+            
+            // Parse the residual risk rating value
+            let residualRiskRating = '';
+            if (details.residual_risk_rating) {
+                if (typeof details.residual_risk_rating === 'object' && details.residual_risk_rating.score !== undefined) {
+                    residualRiskRating = details.residual_risk_rating.score;
+                } else {
+                    residualRiskRating = details.residual_risk_rating;
+                }
+            } else if (details.residual_risk_likelihood_score && details.residual_risk_impact_score) {
+                residualRiskRating = Number(details.residual_risk_likelihood_score) * Number(details.residual_risk_impact_score);
+            }
+            
+            // For new records, set residual risk = inherent risk initially
+            if (!residualRiskRating && inherentRiskRating) {
+                residualRiskRating = inherentRiskRating;
+            }
+            
+            console.log('Loading risk analysis data:', {
+                inherent: {
+                    likelihood: details.inherent_risk_likelihood_score,
+                    impact: details.inherent_risk_impact_score,
+                    rating: inherentRiskRating
+                },
+                residual: {
+                    likelihood: details.residual_risk_likelihood_score || details.inherent_risk_likelihood_score,
+                    impact: details.residual_risk_impact_score || details.inherent_risk_impact_score,
+                    rating: residualRiskRating
+                }
+            });
+            
             setFormData({
                 inherent_likelihood_score: details.inherent_risk_likelihood_score,
                 inherent_impact_score: details.inherent_risk_impact_score,
-                inherent_risk_rating: details.inherent_risk_rating.score,
-                impact_focus_id: details.impact_focus?.id
+                inherent_risk_rating: inherentRiskRating,
+                impact_focus_id: details.impact_focus?.id,
+                // Preserve existing residual risk values if they exist, otherwise copy from inherent risk
+                residual_risk_likelihood_score: details.residual_risk_likelihood_score || details.inherent_risk_likelihood_score,
+                residual_risk_impact_score: details.residual_risk_impact_score || details.inherent_risk_impact_score,
+                residual_risk_rating: residualRiskRating,
             });
-            // setIsAnalysisExisting(true);
         }
     }, [riskAnalysisQuery.data]);
 
@@ -76,25 +133,47 @@ function RiskAnalysisForm({}) {
     const {isPending: isSavingAnalysisToDraft, mutate: saveAnalysisToDraft} = useSaveRiskAnalysisToDraft(riskID, {onSuccess: onDraftSuccess, onError});
 
     useEffect(() => {
-        let text = isUpdatingRiskAnalysis ? 'Updating risk analysis...' : 'Saving risk analysis to draft...';
-        (isUpdatingRiskAnalysis || isSavingAnalysisToDraft) && dispatchMessage('processing', text);
+        if (isUpdatingRiskAnalysis) {
+            console.log('RiskAnalysisForm - Dispatching processing message: Updating risk analysis...');
+            dispatchMessage('processing', 'Updating risk analysis...');
+        } else if (isSavingAnalysisToDraft) {
+            console.log('RiskAnalysisForm - Dispatching processing message: Saving risk analysis to draft...');
+            dispatchMessage('processing', 'Saving risk analysis to draft...');
+        }
     }, [isUpdatingRiskAnalysis, isSavingAnalysisToDraft, dispatchMessage]);
 
     async function onSuccess(data) {
         await queryClient.invalidateQueries({queryKey: ['risks']});
+        console.log('RiskAnalysisForm - Dispatching success message:', data.message);
         dispatchMessage('success', data.message);
     }
     async function onDraftSuccess(data) {
+        console.log('RiskAnalysisForm - Dispatching draft success message:', data.message);
         dispatchMessage('success', data.message);
+        // No automatic navigation after saving to draft, so user can see the success message
     }
     function onError(error) {
-        dispatchMessage('failed', error.response.data.message);
+        console.log('RiskAnalysisForm - Error occurred:', error);
+        let errorMessage = 'An error occurred while processing your request.';
+        
+        // Try to extract a more specific error message if available
+        if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        console.log('RiskAnalysisForm - Dispatching error message:', errorMessage);
+        dispatchMessage('failed', errorMessage);
     }
     function onSettled(data, error) {
         // set newly created risk id and proceed to next step if successful
         if (!error) {
-            // will only navigate to next step if analysis in newly added
-            navigate(`/risks/register/treatment-plan?id=${riskID}`);
+            // Add a short delay before navigation to allow success message to display
+            setTimeout(() => {
+                // will only navigate to next step if analysis in newly added
+                navigate(`/risks/register/treatment-plan?id=${riskID}`);
+            }, 1500); // 1.5 second delay
         }
     }
 
@@ -104,12 +183,53 @@ function RiskAnalysisForm({}) {
         })
     }
 
+    function prepareDataForSubmission() {
+        // Ensure the inherent risk rating is calculated correctly
+        const preparedData = {
+            ...formData,
+            inherent_risk_rating: formData.inherent_likelihood_score && formData.inherent_impact_score ? 
+                Number(formData.inherent_likelihood_score) * Number(formData.inherent_impact_score) : 
+                formData.inherent_risk_rating,
+        };
+        
+        // For new submissions, set initial residual risk values to match inherent risk
+        if (!formData.residual_risk_likelihood_score || !formData.residual_risk_impact_score) {
+            preparedData.residual_risk_likelihood_score = formData.inherent_likelihood_score;
+            preparedData.residual_risk_impact_score = formData.inherent_impact_score;
+            preparedData.residual_risk_rating = preparedData.inherent_risk_rating;
+        }
+        
+        return preparedData;
+    }
+
     function handleNextClicked() {
-        updateRiskAnalysis({data: formData});
+        const dataToSubmit = prepareDataForSubmission();
+        
+        console.log('RiskAnalysisForm - Submitting risk analysis:', dataToSubmit);
+        
+        // Send the data to the API
+        try {
+            updateRiskAnalysis({data: dataToSubmit});
+            console.log('RiskAnalysisForm - Update request sent');
+        } catch (error) {
+            console.error('RiskAnalysisForm - Error sending update request:', error);
+            onError(error);
+        }
     }
 
     function handleSaveToDraftClicked() {
-        saveAnalysisToDraft({data: formData});
+        const dataToSubmit = prepareDataForSubmission();
+        
+        console.log('RiskAnalysisForm - Saving to draft:', dataToSubmit);
+        
+        // Save to draft
+        try {
+            saveAnalysisToDraft({data: dataToSubmit});
+            console.log('RiskAnalysisForm - Save to draft request sent');
+        } catch (error) {
+            console.error('RiskAnalysisForm - Error sending save to draft request:', error);
+            onError(error);
+        }
     }
 
     const isLoading = riskAnalysisQuery.isLoading || likelihoodScoresQuery.isLoading || impactScoresQuery.isLoading || impactFocusesQuery.isLoading || riskBoundariesQuery.isLoading || riskMatrixSizeQuery.isLoading;
@@ -119,12 +239,18 @@ function RiskAnalysisForm({}) {
     const riskAnalysisError = riskAnalysisQuery.error;
 
     if (isLoading) {
-        return <div>Loading...</div>
+        return <div className="p-10 bg-white rounded-lg border border-[#CCC] flex justify-center items-center">
+            <p>Loading risk analysis data...</p>
+        </div>
     }
 
-    if (error || (riskAnalysisError && riskAnalysisError.response.staus !== 404)) {
+    if (error || (riskAnalysisError && riskAnalysisError.response && riskAnalysisError.response.status !== 404)) {
         // error exists and it is not a 'risk analysis not found' error
-        return <div>error</div>
+        return <div className="p-10 bg-white rounded-lg border border-[#CCC] flex flex-col gap-4">
+            <h3 className="text-red-600 font-semibold">Error Loading Risk Analysis</h3>
+            <p>There was an error loading the risk analysis data. Please try again or contact support.</p>
+            <p className="text-sm text-gray-600">Error details: {error ? error.message : riskAnalysisError ? (riskAnalysisError.message || JSON.stringify(riskAnalysisError)) : 'Unknown error'}</p>
+        </div>
     }
 
     const likelihoodScores = likelihoodScoresQuery.data;
@@ -151,13 +277,8 @@ function RiskAnalysisForm({}) {
                                 {/* <Field {...{type: 'textbox', label: 'Single Lass Expert', plactholder: 'Enter lass expert', height: 100}} /> */}
                             </Row>
                             <div className='flex flex-col gap-3 items-start'>
-                                <h4 className='font-semibold'>Inherent Risk Flag</h4>
+                                <h4 className='font-normal'>Inherent Risk Flag</h4>
                                 <RiskRating riskRating={formData.inherent_risk_rating} />
-                                <div>
-                                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Exercitationem dolorum esse, porro voluptate vel laudantium.</p>
-                                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Exercitationem dolorum esse, porro voluptate vel laudantium.</p>
-                                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Exercitationem dolorum esse, porro voluptate vel laudantium.</p>
-                                </div>
                             </div>
                         </section>
                         <section>

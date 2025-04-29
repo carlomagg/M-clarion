@@ -8,17 +8,19 @@ import SortButton from './components/SortButton';
 import FilterButton from './components/FilterButton';
 import RiskLogTable from './components/LogTable';
 import { useQuery } from '@tanstack/react-query';
-import { riskLogOptions } from '../../../../queries/risks/risk-queries';
+import { riskLogOptions, risksPendingApprovalOptions } from '../../../../queries/risks/risk-queries';
 import importIcon from '../../../../assets/icons/import.svg';
 import exportIcon from '../../../../assets/icons/export.svg';
 import ActionsDropdown from '../../../partials/dropdowns/ActionsDropdown/ActionsDropdown';
 import { filterItems } from '../../../../utils/helpers';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import useUser from '../../../../hooks/useUser';
 
-function RiskLog() {
+function RiskLog({ approvalMode = false }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const user = useUser();
     const itemsPerPage = 10;
 
     const actions = [
@@ -62,8 +64,9 @@ function RiskLog() {
         }
     }
 
-    // risk log query
-    const {isLoading, error, data: risks} = useQuery(riskLogOptions({}));
+    // Choose which query to use based on approvalMode
+    const queryOptions = approvalMode ? risksPendingApprovalOptions() : riskLogOptions({});
+    const {isLoading, error, data: risks} = useQuery(queryOptions);
 
     if (isLoading) {
         return <div>Loading</div>
@@ -84,16 +87,19 @@ function RiskLog() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedRisks = sortedRisks.slice(startIndex, startIndex + itemsPerPage);
 
+    const pageTitle = approvalMode ? 'Risk Approval' : 'Risk Log';
+    const tableTitle = approvalMode ? 'Risks Pending Approval' : 'Risk Register';
+
     return (
         <div className='p-10 pt-4 max-w-7xl flex flex-col gap-6'>
-            <PageTitle title={'Risk Log'} />
+            <PageTitle title={pageTitle} />
             <PageHeader>
                 <ActionsDropdown label={'Actions'} items={actions} />
             </PageHeader>
             <div className=''> {/* main content container */}
                 <div className='bg-white p-6 flex flex-col gap-6 rounded-lg border border-[#CCC]'>
                     <header className='flex flex-col gap-3'>
-                        <h3 className='font-semibold text-xl'>Risk Register <span className='font-normal'>({risks.length})</span></h3>
+                        <h3 className='font-semibold text-xl'>{tableTitle} <span className='font-normal'>({risks.length})</span></h3>
                         <div className='flex gap-[10px]'>
                             <div className='flex-1'>
                                 <SearchField searchTerm={searchTerm} onChange={(value) => {
@@ -107,7 +113,22 @@ function RiskLog() {
                             {/* <FilterButton /> */}
                         </div>
                     </header>
-                    <RiskLogTable risks={paginatedRisks} />
+                    {approvalMode && 
+                        <p className="text-sm text-gray-600 mb-2">
+                            These risks have been assigned to you for approval. Click on a risk to view its details and approve or reject.
+                        </p>
+                    }
+                    {paginatedRisks.length === 0 ? (
+                        <div className="text-center py-8 bg-gray-50 rounded-lg">
+                            <p className="text-gray-600">
+                                {approvalMode 
+                                    ? "No risks are currently pending your approval." 
+                                    : "No risks match your search criteria."}
+                            </p>
+                        </div>
+                    ) : (
+                        <RiskLogTable risks={paginatedRisks} />
+                    )}
                     
                     {/* Pagination Controls */}
                     {sortedRisks.length > itemsPerPage && (

@@ -8,8 +8,18 @@ async function fetchRiskLog() {
 }
 
 async function fetchRiskIdentification({queryKey}) {
-    const response = await axios.get(`risk/risks/${queryKey[1]}/view/`);
-    return response.data['Risk_details'];
+    const riskId = queryKey[1];
+    console.log('Fetching risk identification with ID:', riskId);
+    console.log('Using URL:', `risk/risks/${riskId}/view/`);
+    
+    try {
+        const response = await axios.get(`risk/risks/${riskId}/view/`);
+        console.log('Risk identification data received:', response.data);
+        return response.data['Risk_details'];
+    } catch (error) {
+        console.error('Error fetching risk identification:', error);
+        throw error;
+    }
 }
 
 async function fetchRiskAnalysis({queryKey}) {
@@ -133,8 +143,6 @@ async function fetchRiskApprovalsStatuses() {
     return response.data;
 }
 
-
-
 // mutation functions
 async function addRisk({data}) {
     const response = await axios.post('risk/risks/', data);
@@ -153,6 +161,11 @@ async function saveExistingRiskIdentificationToDraft(id, {data}) {
 
 async function updateRiskIdentification(id, {data}) {
     const response = await axios.put(`risk/risks/${id}/update/`, data);
+    return response.data;
+}
+
+async function deleteRisk(id) {
+    const response = await axios.delete(`risk/risks/${id}/delete/`);
     return response.data;
 }
 
@@ -435,6 +448,16 @@ export function riskApprovalStatusesOptions(options) {
     })
 }
 
+export function risksPendingApprovalOptions(options) {
+    return queryOptions({
+        queryKey: ['risks', 'pending-approval'],
+        queryFn: fetchRiskLog,
+        select: (data) => {
+            return data || [];
+        },
+        ...options
+    })
+}
 
 // mutation hooks
 export function useAddRisk(callbacks) {
@@ -446,7 +469,14 @@ export function useAddRisk(callbacks) {
 
 export function useUpdateRiskIdentification(riskId, callbacks) {
     return useMutation({
-        mutationFn: (vars) => updateRiskIdentification(riskId, vars),
+        mutationFn: (variables) => updateRiskIdentification(riskId, variables),
+        ...callbacks
+    });
+}
+
+export function useDeleteRisk(callbacks) {
+    return useMutation({
+        mutationFn: (id) => deleteRisk(id),
         ...callbacks
     });
 }

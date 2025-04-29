@@ -33,6 +33,8 @@ import RiskLog from './components/pages/risks/RiskLog/RiskLog.jsx'
 import RiskRegister from './components/pages/risks/RiskRegister/RiskRegister.jsx'
 import RiskReview from './components/pages/risks/RiskReview/RiskReview.jsx'
 import RiskUpdate from './components/pages/risks/RiskUpdate/RiskUpdate.jsx'
+import RiskApprove from './components/pages/risks/RiskApprove/RiskApprove.jsx'
+import RiskFollowUp from './components/pages/risks/RiskFollowUp/RiskFollowUp.jsx'
 import RiskManagementLayout from './components/settings/risk-management/Layout.jsx';
 import RiskManagementIndex from './components/settings/risk-management/Index/Index.jsx'
 import RiskMatrixSetup from './components/settings/risk-management/RiskMatrixSetup/RiskMatrixSetup.jsx'
@@ -54,7 +56,7 @@ import HelpCategoryTopics from './components/pages/homepage/HelpCategoryTopics/H
 import HelpGuide from './components/pages/homepage/HelpGuide/HelpGuide.jsx'
 import HelpCategories from './components/pages/homepage/HelpCategories/HelpCategories.jsx'
 import LicenseManagement from './components/pages/license-management/LicenseManagement'
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import useUser from './hooks/useUser';
 import ProcessView from './components/pages/process-management/ProcessView/ProcessView.jsx'
 import ProcessSelector from './components/pages/process-management/ProcessSelector/ProcessSelector.jsx'
@@ -140,6 +142,11 @@ const ROUTES = [
                     {index: true, element: <RiskLog />, breadcrumb: 'Risk Log'},
                     {path: 'dashboard', element: <RiskDashboard />, breadcrumb: 'Dashboard'},
                     {path: 'register/:step?', element: <RiskRegister />, breadcrumb: 'Risk Register'},
+                    {path: 'approve', element: <div className='p-10 pt-4 flex flex-col gap-6'>
+                        <h1 className='text-2xl font-bold'>Risk Approval</h1>
+                        <div className='h-full w-full grid place-items-center'>This feature is not implemented yet</div>
+                    </div>, breadcrumb: 'Risk Approval'},
+                    {path: 'follow-up', element: <RiskFollowUp />, breadcrumb: 'Follow Up'},
                     {path: ':id', element: <RiskReview />, breadcrumb: RiskDynamicBreadcrumb},
                     {path: ':id/update', element: <RiskUpdate />, breadcrumb: 'Update Risk'},
                 ]

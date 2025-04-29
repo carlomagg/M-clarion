@@ -23,6 +23,12 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
     const params = useParams();
     const riskID = mode === 'update' ? params.id : searchParams.get('id');
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const dispatchMessage = useDispatchMessage();
+    
+    console.log('RiskIdentificationForm - mode:', mode);
+    console.log('RiskIdentificationForm - params.id:', params.id);
+    console.log('RiskIdentificationForm - riskID:', riskID);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -43,25 +49,41 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
     // queries
     const [riskIdentificationQuery, identificationToolsQuery, linkedResourcesQuery, riskTriggersQuery, riskCategoriesQuery, riskClassesQuery, riskAreasQuery, usersQuery] = useQueries({
         queries: [riskIdentificationOptions(riskID, {enabled: !!riskID}), identificationToolsOptions(), linkedResourcesOptions(), riskTriggersOptions(), riskCategoriesOptions(), riskClassesOptions(), riskAreasOptions(), usersOptions()]
-    })
+    });
+    
+    console.log('RiskIdentificationForm - Query loading:', riskIdentificationQuery.isLoading);
+    console.log('RiskIdentificationForm - Query error:', riskIdentificationQuery.error);
+    console.log('RiskIdentificationForm - Query data:', riskIdentificationQuery.data);
 
     const selectedCategory = riskCategoriesQuery.data?.find(cat => cat.id === formData.category_id)?.name || '';
     const selectedClass = riskClassesQuery.data?.find(c => c.class_id === formData.class_id)?.class_name || '';
 
+    // Clear class_id when category_id changes
+    useEffect(() => {
+        // We need to reset class_id regardless of whether a new category is selected
+        setFormData(prev => ({
+            ...prev,
+            class_id: '' // Reset class when category changes
+        }));
+    }, [formData.category_id]);
+
     // sync risk name, category and class states declared in containing component
     useEffect(() => {
-        setRiskName(formData.name);
-    }, [formData.name]);
+        setRiskName?.(formData.name);
+    }, [formData.name, setRiskName]);
+    
     useEffect(() => {
-        setRiskCategory(selectedCategory);
-    }, [selectedCategory]);
+        setRiskCategory?.(selectedCategory);
+    }, [selectedCategory, setRiskCategory]);
+    
     useEffect(() => {
-        setRiskClass(selectedClass);
-    }, [selectedClass]);
+        setRiskClass?.(selectedClass);
+    }, [selectedClass, setRiskClass]);
 
     // update form data with risk ID details if it exists
     useEffect(() => {
         if (riskIdentificationQuery.data) {
+            console.log('Setting form data from query result:', riskIdentificationQuery.data);
             const details = riskIdentificationQuery.data;
             const dateParts = String(details.date_identified).split('-');
             const formattedDateString = dateParts ? dateParts[2]+'-'+dateParts[1]+'-'+dateParts[0] : null;
@@ -72,15 +94,18 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
                 date: formattedDateString || '',
                 description: details.description || '',
                 tags: details.risk_tags || '',
-                identification_tool_ids: details.identification_tool.map(i => i.id),
+                identification_tool_ids: details.identification_tool?.map(i => i.id) || [],
                 owner_id: details.risk_owner?.id || '',
                 note: details.risk_note || '',
                 link_area_id: details.risk_area?.id || '',
-                risk_trigger_ids: details.risk_triggers.map(t => t.id),
-                linked_resources_ids: details.linked_resources.map(l => l.id)
+                risk_trigger_ids: details.risk_triggers?.map(t => t.id) || [],
+                linked_resources_ids: details.linked_resources?.map(l => l.id) || []
             });
+        } else if (riskIdentificationQuery.error) {
+            console.error('Error loading risk identification:', riskIdentificationQuery.error);
+            dispatchMessage('error', 'Failed to load risk details. Please try again.');
         }
-    }, [riskIdentificationQuery.data])
+    }, [riskIdentificationQuery.data, riskIdentificationQuery.error, dispatchMessage]);
 
     // mutations
     const {isPending: isAddingRisk, mutate: addRisk} = useAddRisk({onSuccess, onError, onSettled});
@@ -88,8 +113,6 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
     const {isPending: isSavingNewToDraft, mutate: saveNewRiskToDraft} = useSaveNewRiskIdentificationToDraft({onDraftSuccess, onError});
     const {isPending: isSavingExistingToDraft, mutate: saveExistingRiskToDraft} = useSaveExistingRiskIdentificationToDraft(riskID, {onSuccess: onDraftSuccess, onError});
 
-    const queryClient = useQueryClient();
-    const dispatchMessage = useDispatchMessage();
     useEffect(() => {
         let text = isAddingRisk ? 'Adding new risk...' : (isUpdatingRisk ? 'Updating risk...' : ((isSavingNewToDraft || isSavingExistingToDraft) && 'Saving risk to draft...'));
         (isAddingRisk || isUpdatingRisk || isSavingNewToDraft || isSavingExistingToDraft) && dispatchMessage('processing', text);
@@ -122,7 +145,28 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
     }
 
     function handleNextClicked() {
-        (!!riskID ? updateRisk : addRisk)({data: formData});
+        // When updating a risk, use the updated format
+        if (riskID) {
+            // Match the exact payload format specified
+            const payload = {
+                "name": formData.name,
+                "category_id": Number(formData.category_id),
+                "class_id": Number(formData.class_id),
+                "date": formData.date,
+                "description": formData.description,
+                "tags": formData.tags,
+                "identification_tool_ids": formData.identification_tool_ids.map(id => Number(id)),
+                "owner_id": Number(formData.owner_id),
+                "note": formData.note,
+                "link_area_id": Number(formData.link_area_id),
+                "risk_trigger_ids": formData.risk_trigger_ids.map(id => Number(id)),
+                "linked_resources_ids": formData.linked_resources_ids.map(id => Number(id))
+            };
+            updateRisk({data: payload});
+        } else {
+            // Adding a new risk
+            addRisk({data: formData});
+        }
     }
 
     function handleSaveToDraft() {
@@ -136,19 +180,80 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
     const riskIdentificationError = riskID && riskIdentificationQuery.error;
 
     if (isLoading) {
-        return <div>Loading...</div>
+        return <div className="p-10 bg-white rounded-lg border border-[#CCC] flex justify-center items-center">
+            <p>Loading risk details...</p>
+        </div>
     }
 
-    if (error || (riskIdentificationError && riskIdentificationError.response.status !== 404)) {
-        // error exists and it is not a 'risk not found' error
-        return <div>error</div>
+    if (error) {
+        return <div className="p-10 bg-white rounded-lg border border-[#CCC] flex flex-col gap-4">
+            <h3 className="text-red-600 font-semibold">Error Loading Data</h3>
+            <p>There was an error loading some required data. Please try again or contact support.</p>
+            <p className="text-sm text-gray-600">Error details: {error.message}</p>
+        </div>
+    }
+
+    if (riskIdentificationError) {
+        return <div className="p-10 bg-white rounded-lg border border-[#CCC] flex flex-col gap-4">
+            <h3 className="text-red-600 font-semibold">Error Loading Risk</h3>
+            <p>There was an error loading the risk details. Please try again or contact support.</p>
+            <p className="text-sm text-gray-600">Error details: {riskIdentificationError.message || JSON.stringify(riskIdentificationError)}</p>
+        </div>
     }
 
     const identificationTools = identificationToolsQuery.data;
     const linkedResources = linkedResourcesQuery.data;
     const riskTriggers = riskTriggersQuery.data;
     const riskCategories = riskCategoriesQuery.data.map(cat => ({id: cat.id, text: cat.name}));
-    const riskClasses = riskClassesQuery.data.map(cla => ({id: cla.class_id, text: cla.class_name}));
+    
+    // Filter risk classes based on the selected category_id
+    const allRiskClasses = riskClassesQuery.data || [];
+    
+    // Only show classes that belong to the selected category
+    // Note: We need to check both category_id and Category.id in case of different API response formats
+    // Also, we need to ensure we're comparing values consistently by converting to numbers
+    const selectedCategoryId = formData.category_id ? Number(formData.category_id) : null;
+    
+    // Add more detailed logging to diagnose the issue
+    console.log('Selected Category ID:', selectedCategoryId);
+    console.log('All Risk Classes:', allRiskClasses);
+    
+    // Check each class's category ID for debugging
+    if (selectedCategoryId) {
+        console.log('Category IDs in classes:', allRiskClasses.map(cls => 
+            ({class_name: cls.class_name, category_id: cls.category_id, Category_id: cls.Category?.id}))
+        );
+    }
+    
+    const filteredRiskClasses = selectedCategoryId 
+        ? allRiskClasses
+            .filter(cls => {
+                const clsCategoryId = cls.category_id !== null ? Number(cls.category_id) : null;
+                const clsCategoryIdFromObj = cls.Category?.id !== null ? Number(cls.Category?.id) : null;
+                
+                // Log each comparison for debugging
+                console.log(`Class: ${cls.class_name}, Class category_id: ${clsCategoryId}, Category.id: ${clsCategoryIdFromObj}, Selected: ${selectedCategoryId}, Match: ${clsCategoryId === selectedCategoryId || clsCategoryIdFromObj === selectedCategoryId}`);
+                
+                return clsCategoryId === selectedCategoryId || clsCategoryIdFromObj === selectedCategoryId;
+            })
+            .map(cla => ({id: cla.class_id, text: cla.class_name}))
+        : []; // Empty array when no category is selected
+    
+    // Log filtered classes for debugging
+    console.log('Filtered Risk Classes:', filteredRiskClasses);
+    
+    // If no classes are found for this category, show all classes
+    // This is a temporary fix until the data is corrected
+    const classesToShow = (selectedCategoryId && filteredRiskClasses.length === 0) 
+        ? allRiskClasses
+            .filter(cls => cls.class_id) // Filter out any invalid entries
+            .map(cla => ({id: cla.class_id, text: cla.class_name}))
+        : filteredRiskClasses;
+    
+    console.log('Classes to show:', classesToShow);
+    console.log('Total classes:', allRiskClasses.length);
+    console.log('Classes to show length:', classesToShow.length);
+
     const riskAreas = riskAreasQuery.data.map(area => ({id: area.id, text: area.name}));
     const users = usersQuery.data.map(u => ({id: u.user_id, text: (!u.firstname || !u.lastname) ? u.email : `${u.firstname} ${u.lastname}`}));
 
@@ -190,9 +295,21 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
                     <div className='mt-3 flex flex-col gap-6'>
                         <Field {...{name: 'name', label: 'Name', placeholder: 'Enter risk name', value: formData.name, onChange: handleChange}} />
                         <div className='flex gap-6'>
-                            <RiskCategoryDropdown categories={riskCategories} selected={formData.category_id} onChange={handleChange} />
-                            <RiskClassDropdown classes={riskClasses} selected={formData.class_id} onChange={handleChange} />
-                            <Field {...{type: 'date', label: 'Date Identified', name: 'date', value: formData.date, onChange: handleChange}} />
+                            <div className='w-[35%]'>
+                                <RiskCategoryDropdown categories={riskCategories} selected={formData.category_id} onChange={handleChange} />
+                            </div>
+                            <div className='w-[35%]'>
+                                <RiskClassDropdown 
+                                    classes={classesToShow} 
+                                    selected={formData.class_id} 
+                                    onChange={handleChange} 
+                                    totalClassCount={allRiskClasses.length}
+                                    isAllClasses={selectedCategoryId && filteredRiskClasses.length === 0 && classesToShow.length > 0}
+                                />
+                            </div>
+                            <div className='w-[35%]'>
+                                <Field {...{type: 'date', label: 'Date Identified', name: 'date', value: formData.date, onChange: handleChange}} />
+                            </div>
                         </div>
                         <label className='flex gap-2 items-center'>
                             <input type="checkbox" onChange={toggleAIAssistance} />
@@ -277,9 +394,27 @@ function RiskDescriptionField({value, onChange, riskName, selectedCategory, sele
         mutate({risk: riskName, category: selectedCategory, risk_class: selectedClass, suggestion: promptSuggestion});
     }
 
+    function handleApplySuggestion(suggestion) {
+        onChange({
+            target: {
+                name: 'description',
+                value: suggestion
+            }
+        });
+    }
+
     return (
         <CKEAIField {...{name: 'description', label: 'Description', value, onChange, error: null}}>
-            <AISuggestionBox style={{position: 'absolute', bottom: '1rem', right: '1rem'}} onFetch={fetchRiskDescriptionSuggestion} isFetching={isPending} error={aiError} content={aiSuggestion} suggestion={promptSuggestion} onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} />
+            <AISuggestionBox 
+                style={{position: 'absolute', bottom: '1rem', right: '1rem'}} 
+                onFetch={fetchRiskDescriptionSuggestion} 
+                onApply={handleApplySuggestion}
+                isFetching={isPending} 
+                error={aiError} 
+                content={aiSuggestion} 
+                suggestion={promptSuggestion} 
+                onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} 
+            />
         </CKEAIField>
     );
 }
@@ -307,10 +442,28 @@ function TagsField({value, onChange, riskName, selectedCategory, selectedClass})
         mutate({risk: riskName, category: selectedCategory, risk_class: selectedClass, suggestion: promptSuggestion});
     }
 
+    function handleApplySuggestion(suggestion) {
+        onChange({
+            target: {
+                name: 'tags',
+                value: suggestion
+            }
+        });
+    }
+
     return (
         <div className='relative w-1/2'>
             <Field {...{name: 'tags', label: 'Tags', placeholder: 'Enter risk tags separated by commas (,)', value, onChange }} />
-            <AISuggestionBox style={{position: 'absolute', right: '1rem', top: '55%'}} {...{onFetch: fetchRiskTagsSuggestion, isFetching: isPending, error: aiError, content: aiSuggestion, suggestion: promptSuggestion, onSuggestionChange: (e) => setPromptSuggestion(e.target.value)}} />
+            <AISuggestionBox 
+                style={{position: 'absolute', right: '1rem', top: '55%'}} 
+                onFetch={fetchRiskTagsSuggestion} 
+                onApply={handleApplySuggestion}
+                isFetching={isPending} 
+                error={aiError} 
+                content={aiSuggestion} 
+                suggestion={promptSuggestion} 
+                onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} 
+            />
         </div>
     );
 }
@@ -322,10 +475,40 @@ function RiskCategoryDropdown({categories, selected, onChange}) {
     );
 }
 
-function RiskClassDropdown({classes, selected, onChange}) {
+function RiskClassDropdown({classes, selected, onChange, totalClassCount, isAllClasses}) {
     const [isCollapsed, setIsCollapsed] = useState(true);
+    
+    // Determine the appropriate placeholder text based on the classes array
+    // This provides better feedback to the user
+    let placeholderText = 'Select risk class';
+    
+    if (classes.length === 0) {
+        placeholderText = 'Please select a category first';
+    } else if (isAllClasses) {
+        // This case happens when we're showing all classes because none match the selected category
+        placeholderText = 'All risk classes (no category filter)';
+    }
+    
     return (
-        <SelectDropdown label={'Class'} placeholder={'Select risk class'} items={classes} name={'class_id'} selected={selected} onSelect={onChange} isCollapsed={isCollapsed} onToggleCollpase={setIsCollapsed} />
+        <div className="flex flex-col">
+            <SelectDropdown 
+                label={'Class'} 
+                placeholder={placeholderText} 
+                items={classes} 
+                name={'class_id'} 
+                selected={selected} 
+                onSelect={onChange} 
+                isCollapsed={isCollapsed} 
+                onToggleCollpase={setIsCollapsed}
+                disabled={classes.length === 0} // Disable dropdown when no classes available
+            />
+            
+            {isAllClasses && (
+                <div className="mt-1 text-xs text-amber-600">
+                    No specific classes found for this category. Showing all available classes.
+                </div>
+            )}
+        </div>
     );
 }
 

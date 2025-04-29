@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, Loader2, X } from 'lucide-react';
 import styles from './ProcessIndicator.module.css';
-import { useContext } from 'react';
-import MessageContext from '../../../contexts/message-context';
+import { useMessage } from '../../../contexts/MessageContext';
 
 function ProcessIndicator() {
     const [show, setShow] = useState(false);
-    const messageContext = useContext(MessageContext);
+    const { message, dispatchMessage } = useMessage();
     
-    if (!messageContext) {
-        return null;
-    }
-
-    const { message, dispatchMessage } = messageContext;
-
+    // Debug message context
+    console.log('ProcessIndicator - message:', message);
+    
+    // Setup the effect for handling messages - this must be before any conditional return
     useEffect(() => {
         if (message) {
+            console.log('ProcessIndicator - Message received:', message);
             setShow(true);
             const timer = setTimeout(() => {
                 setShow(false);
@@ -24,9 +22,12 @@ function ProcessIndicator() {
                 }, 300);
             }, 6000);
             return () => clearTimeout(timer);
+        } else {
+            setShow(false);
         }
     }, [message, dispatchMessage]);
-
+    
+    // Early return if no message
     if (!message) return null;
 
     // Determine display type first

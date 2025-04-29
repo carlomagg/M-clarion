@@ -14,19 +14,22 @@ function RiskBoundarySetup() {
     const [showModal, setShowModal] = useState(false);
 
     // queries
-    const {isLoading, error, data: boundaries} = useQuery(riskBoundariesOptions());
+    const {isLoading, error, data: boundaries = []} = useQuery(riskBoundariesOptions());
 
-    if (isLoading) return <div>Loading</div>
-    if (error) return <div>error</div>
+    if (isLoading) return <div>Loading risk boundaries...</div>
+    if (error) return <div>Error loading risk boundaries: {error.message}</div>
 
     function checkOverlap(lowerBound, higherBound, id = null) {
         // ensure new range does not overlap with any existing range
+        if (!boundaries || boundaries.length === 0) return false;
+        
         const isOverlapping = boundaries.some((boundary) => {
             if (boundary.id === id) return false;
             if (
                 (lowerBound >= boundary.lower_bound && lowerBound <= boundary.higher_bound) ||
                 (higherBound >= boundary.lower_bound && higherBound <= boundary.higher_bound)
             ) return true;
+            return false;
         });
         return isOverlapping;
     }
@@ -61,11 +64,11 @@ function RiskBoundarySetup() {
                                 <p className='italic text-[#565656]'>Description of the function of indicators</p>
                             </div>
                         </div>
-                        <BoundaryLevelsTable items={boundaries} checkOverlap={checkOverlap} />
+                        <BoundaryLevelsTable items={boundaries || []} checkOverlap={checkOverlap} />
                     </div>
                     <hr className="border border-red-[#CCC]" />
                     <div>
-                        <RiskHeatmapContext.Provider value={{levels: boundaries, size: 4}}>
+                        <RiskHeatmapContext.Provider value={{levels: boundaries || [], size: 4}}>
                             <RiskEvaluationHeatMap selected={[]} title='Preview' />
                         </RiskHeatmapContext.Provider>
                     </div>

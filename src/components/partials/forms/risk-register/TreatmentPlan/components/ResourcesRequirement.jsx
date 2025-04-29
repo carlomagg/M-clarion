@@ -26,9 +26,27 @@ export default function ResourcesRequirementField({value, onChange, riskName, ri
         mutate({risk: riskName, risk_response: riskResponse, control_family: riskFamily, suggestion: promptSuggestion});
     }
 
+    function handleApplySuggestion(suggestion) {
+        onChange({
+            target: {
+                name: 'resources_requirement',
+                value: suggestion
+            }
+        });
+    }
+
     return (
         <CKEAIField {...{name: 'resources_requirement', label: 'Resource Requirement', value, onChange, error: null}}>
-            <AISuggestionBox style={{position: 'absolute', bottom: '1rem', right: '1rem'}} onFetch={fetchRiskDescriptionSuggestion} isFetching={isPending} error={aiError} content={aiSuggestion} suggestion={promptSuggestion} onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} />
+            <AISuggestionBox 
+                style={{position: 'absolute', bottom: '1rem', right: '1rem'}} 
+                onFetch={fetchRiskDescriptionSuggestion} 
+                onApply={handleApplySuggestion}
+                isFetching={isPending} 
+                error={aiError} 
+                content={aiSuggestion} 
+                suggestion={promptSuggestion} 
+                onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} 
+            />
         </CKEAIField>
     );
 }

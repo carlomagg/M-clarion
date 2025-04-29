@@ -1,5 +1,5 @@
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ProcessService from '../../../../services/Process.service';
 import PageTitle from '../../../partials/PageTitle/PageTitle';
@@ -8,6 +8,7 @@ import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 function ProcessView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
 
   const {
@@ -20,6 +21,17 @@ function ProcessView() {
     queryFn: () => ProcessService.getProcessById(id),
     refetchOnWindowFocus: true,
   });
+
+  // Determine the return path based on where the user came from
+  const goBack = () => {
+    // Check if we have location state with information about where to go back
+    if (location.state && location.state.from === 'dashboard') {
+      navigate('/process-management/dashboard');
+    } else {
+      // Default to process management log (catalog)
+      navigate('/process-management');
+    }
+  };
 
   // Function to manually refresh the data
   const refreshData = async () => {
@@ -59,11 +71,11 @@ function ProcessView() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <button
-          onClick={() => navigate('/process-management')}
+          onClick={goBack}
           className="flex items-center text-gray-600 hover:text-gray-900"
         >
           <ChevronLeftIcon className="h-5 w-5 mr-1" />
-          Back to Process Management
+          Back
         </button>
       </div>
       <PageTitle title="Process Details" />

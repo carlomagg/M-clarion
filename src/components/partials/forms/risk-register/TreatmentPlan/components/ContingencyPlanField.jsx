@@ -26,9 +26,27 @@ export default function ContingencyPlanField({value, onChange, riskName, riskRes
         mutate({risk: riskName, risk_response: riskResponse, control_family: riskFamily, suggestion: promptSuggestion});
     }
 
+    function handleApplySuggestion(suggestion) {
+        onChange({
+            target: {
+                name: 'contingency_plan',
+                value: suggestion
+            }
+        });
+    }
+
     return (
         <CKEAIField {...{name: 'contingency_plan', label: 'Contingency Plan', value, onChange, error: null}}>
-            <AISuggestionBox style={{position: 'absolute', bottom: '1rem', right: '1rem'}} onFetch={fetchContingencyPlanSuggestion} isFetching={isPending} error={aiError} content={aiSuggestion} suggestion={promptSuggestion} onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} />
+            <AISuggestionBox 
+                style={{position: 'absolute', bottom: '1rem', right: '1rem'}} 
+                onFetch={fetchContingencyPlanSuggestion} 
+                onApply={handleApplySuggestion}
+                isFetching={isPending} 
+                error={aiError} 
+                content={aiSuggestion} 
+                suggestion={promptSuggestion} 
+                onSuggestionChange={(e) => setPromptSuggestion(e.target.value)} 
+            />
         </CKEAIField>
     );
 }

@@ -1,7 +1,7 @@
 import { useContext } from "react";
-import MessageContext from "../contexts/message-context";
+import { useMessage } from "../contexts/MessageContext";
 
 export default function useDispatchMessage() {
-    const {dispatchMessage} = useContext(MessageContext)
+    const { dispatchMessage } = useMessage();
     return dispatchMessage;
 }

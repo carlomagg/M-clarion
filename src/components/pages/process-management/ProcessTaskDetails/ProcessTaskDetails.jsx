@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeftIcon, CheckCircleIcon, ExclamationCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 import ProcessService from '../../../../services/Process.service';
@@ -10,6 +10,18 @@ import Error from '../../../partials/Error/Error';
 const ProcessTaskDetails = () => {
   const { processId, taskId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Determine the return path based on where the user came from
+  const goBack = () => {
+    // Check if we have location state with information about where to go back
+    if (location.state && location.state.from === 'dashboard') {
+      navigate('/process-management/dashboard');
+    } else {
+      // Default to process management log (catalog)
+      navigate('/process-management');
+    }
+  };
 
   // Fetch task details
   const { 
@@ -99,11 +111,11 @@ const ProcessTaskDetails = () => {
       <div className="p-6">
         {/* Back button with pink arrow and text matching pagination buttons */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="flex items-center mb-6 px-4 py-2 rounded text-white bg-pink-500 hover:bg-pink-600 shadow-sm"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
-          Back to Dashboard
+          Back
         </button>
 
         {isLoading ? (

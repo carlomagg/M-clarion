@@ -41,6 +41,7 @@ function CustomCKEditor({name, value, onChange}) {
                     Bold, Essentials, Italic, Mention, Paragraph, Heading, Undo, Underline, Alignment, List, SpacerPlugin
                 ],
                 // initialData: '<p>Hello from CKEditor 5 in React!</p>',
+                removePlugins: ['Logo'],
             } }
         />
     );

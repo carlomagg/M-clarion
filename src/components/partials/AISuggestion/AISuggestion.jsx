@@ -6,7 +6,7 @@ import cancelIcon from '../../../assets/icons/cancel.svg';
 import { Field } from "../Elements/Elements";
 import styleModule from './style.module.css';
 
-export default function AISuggestionBox({onFetch, isFetching, error, content, suggestion, onSuggestionChange, style={}}) {
+export default function AISuggestionBox({onFetch, onApply, isFetching, error, content, suggestion, onSuggestionChange, style={}}) {
     const [isDialogVisible, setIsDialogVisible] = useState(false);
     const buttonRef = useRef(null);
 
@@ -18,7 +18,7 @@ export default function AISuggestionBox({onFetch, isFetching, error, content, su
         <div style={style}>
             <div className="relative">
                 <MagicButton buttonRef={buttonRef} onClick={() => setIsDialogVisible(true)} style={isDialogVisible ? {opacity: 0, maxHeight: 0, overflow: 'hidden'} : {}} />
-                {isDialogVisible && <AIDialog button={buttonRef.current} {...{isFetching, error, content, suggestion, onSuggestionChange, onFetch}} onClose={() => setIsDialogVisible(false)} />}
+                {isDialogVisible && <AIDialog button={buttonRef.current} {...{isFetching, error, content, suggestion, onSuggestionChange, onFetch, onApply}} onClose={() => setIsDialogVisible(false)} />}
             </div>
         </div>
     );
@@ -35,7 +35,7 @@ function MagicButton({onClick, buttonRef, style}) {
     );
 }
 
-function AIDialog({button, onClose, isFetching, error, content, suggestion, onSuggestionChange, onFetch}) {
+function AIDialog({button, onClose, isFetching, error, content, suggestion, onSuggestionChange, onFetch, onApply}) {
     const notificationBarHeight = 0;
     const headerHeight = 77;
     const dialogHeight = 384;
@@ -55,6 +55,13 @@ function AIDialog({button, onClose, isFetching, error, content, suggestion, onSu
         }
     }
 
+    function handleApplyClicked() {
+        if (content && onApply) {
+            const regExpResult = new RegExp(`[^:]*:?\s?(.*)`).exec(content);
+            onApply(regExpResult[1].trim());
+        }
+    }
+
     const article = isFetching ?
         <p className="italic text-text-gray">Fetching AI Suggestion...</p> :
         (
@@ -71,6 +78,7 @@ function AIDialog({button, onClose, isFetching, error, content, suggestion, onSu
                         <h3 className="font-bold">AI Suggestion</h3>
                         <div className="flex gap-2">
                             <Button text={'Refresh'} icon={refreshIcon} onClick={onFetch} />
+                            {onApply && <Button text={'Apply'} icon={copyIcon} onClick={handleApplyClicked} />}
                             <Button text={'Copy'} icon={copyIcon} onClick={handleCopyClicked} />
                             <Button text={'Close'} icon={cancelIcon} onClick={onClose} />
                         </div>

@@ -36,3 +36,17 @@
 .ck-list-bogus-paragraph {
     display: inline-block !important;
 }
+
+/* Hide the "powered by CKEditor" logo */
+.ck-powered-by {
+    display: none !important;
+}
+
+/* Alternative selectors that might be needed */
+a.ck-powered-by__link {
+    display: none !important;
+}
+
+.ck-powered-by-balloon {
+    display: none !important;
+}

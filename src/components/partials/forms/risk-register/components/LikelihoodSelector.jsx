@@ -11,7 +11,7 @@ export default function LikelihoodSelector({likelihoodScores, selectedLikelihood
     const criteria = likelihoodScores.find(l => l.score === focusedScore)?.criteria;
     return (
         <div className='flex flex-col gap-3 flex-1'>
-            <h4 className='font-medium'>Select Likelihood</h4>
+            <h4 className='font-normal'>Select Likelihood</h4>
             <ul className='flex gap-1'>
                 {
                     scores.map(likelihood => {
@@ -26,7 +26,7 @@ export default function LikelihoodSelector({likelihoodScores, selectedLikelihood
             <div>
                 {
                     criteria ?
-                    <p>{criteria}</p> :
+                    <p className="font-normal text-gray-500">{criteria}</p> :
                     <p className="italic text-text-gray">Hover on likelihood to see criteria</p>
                 }
             </div>

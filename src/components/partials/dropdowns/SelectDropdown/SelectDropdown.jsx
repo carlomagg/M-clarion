@@ -16,7 +16,8 @@ function SelectDropdown({
     customAction = null, 
     contentAfterLabel = null, 
     filterTerm = '', 
-    setFilterTerm = () => {}
+    setFilterTerm = () => {},
+    disabled = false // New prop to disable the dropdown
 }) {
     const dropdownRef = useRef(null);
     const [selectedValue, setSelectedValue] = useState('');
@@ -99,6 +100,12 @@ function SelectDropdown({
         }
     }
 
+    function handleToggleClick() {
+        if (disabled) return; // Do nothing if disabled
+        const toggleFn = onToggleCollapse || onToggleCollpase;
+        toggleFn && toggleFn(!isCollapsed);
+    }
+
     const toggleFn = onToggleCollapse || onToggleCollpase;
     const chevron = <svg className={`transition-transform ${!isCollapsed ? 'rotate-180' : ''}`} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M6 9L12 15L18 9" stroke="#A1A1A1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -109,13 +116,14 @@ function SelectDropdown({
             {label && <label className="text-[12px] font-normal">{label}</label>}
             {contentAfterLabel}
             <div 
-                onKeyDown={e => !isCollapsed && handleKeyStroke(e)} 
-                className={`relative border rounded-lg ${isCollapsed ? 'border-border-gray' : 'border-text-pink'}`}
+                onKeyDown={e => !isCollapsed && !disabled && handleKeyStroke(e)} 
+                className={`relative border rounded-lg ${isCollapsed ? 'border-border-gray' : 'border-text-pink'} ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
                 <button
                     type="button"
-                    className="w-full p-3 flex justify-between items-center outline-none focus:outline-none"
-                    onClick={() => toggleFn && toggleFn(!isCollapsed)}
+                    className={`w-full p-3 flex justify-between items-center outline-none focus:outline-none ${disabled ? 'cursor-not-allowed' : ''}`}
+                    onClick={handleToggleClick}
+                    disabled={disabled}
                 >
                     {filterable ? (
                         <input
@@ -125,16 +133,17 @@ function SelectDropdown({
                             placeholder={placeholder}
                             className="w-full outline-none text-sm text-text-gray"
                             onClick={(e) => e.stopPropagation()}
+                            disabled={disabled}
                         />
                     ) : (
-                        <span className="text-sm text-text-gray">
+                        <span className={`text-sm ${disabled ? 'text-gray-400' : 'text-text-gray'}`}>
                             {selectedValue || placeholder}
                         </span>
                     )}
                     {chevron}
                 </button>
                 
-                {!isCollapsed && safeItems.length > 0 && (
+                {!isCollapsed && !disabled && safeItems.length > 0 && (
                     <ul className="absolute z-50 w-full max-h-48 overflow-y-auto bg-white border border-border-gray rounded-lg mt-1 shadow-lg">
                         {safeItems.map((item, i) => (
                             <li

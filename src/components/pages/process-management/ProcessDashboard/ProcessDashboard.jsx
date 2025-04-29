@@ -297,7 +297,7 @@ const ProcessDashboard = () => {
 
   // Handle task row click
   const handleTaskClick = (taskId) => {
-    navigate(`/process/task/${selectedProcessId}/${taskId}`);
+    navigate(`/process/task/${selectedProcessId}/${taskId}`, { state: { from: 'dashboard' } });
   };
 
   // Handle pagination
@@ -466,7 +466,7 @@ const ProcessDashboard = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{process.type}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right">
                               <button 
-                                onClick={() => navigate(`/process-management/${process.id}/view`)}
+                                onClick={() => navigate(`/process-management/${process.id}/view`, { state: { from: 'dashboard' } })}
                                 className="text-blue-500 hover:text-blue-700 font-medium"
                               >
                                 View Details

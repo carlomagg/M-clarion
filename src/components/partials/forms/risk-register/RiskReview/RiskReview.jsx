@@ -63,10 +63,13 @@ function RiskReview({mode}) {
     }
     function onSettled(data, error) {
         // set newly created risk id and proceed to next step if successful
-        // if (!error) {
-        //     navigate(`/track-risk/review?id=${riskID}`);
-        // }
-        console.log('settled')
+        if (!error && mode === 'form') {
+            // Add a short delay before navigation to allow success message to display
+            setTimeout(() => {
+                // Navigate to the risk tracking page after successful completion of the risk register process
+                navigate(`/risks/track/${riskID}`);
+            }, 1500); // 1.5 second delay
+        }
     }
 
     function handleEditClicked(section) {
@@ -158,7 +161,7 @@ function RiskReview({mode}) {
                 mode === 'form' &&
                 <div className='flex gap-3'>
                     <FormCancelButton text={'Discard'} />
-                    <FormCustomButton text={'Previous'} onClick={() => onSetCurrentStep('Treatment Plan')} />
+                    <FormCustomButton text={'Previous'} onClick={() => navigate(-1)} />
                     {/* <FormCustomButton text={'Save To Draft'} /> */}
                     <FormProceedButton text={'Save'} onClick={handleSaveClicked} />
                 </div>

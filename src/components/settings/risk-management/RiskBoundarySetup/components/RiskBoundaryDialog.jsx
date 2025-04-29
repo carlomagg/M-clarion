@@ -25,7 +25,7 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
 
     // populate formdata when in edit mode
     useEffect(() => {
-        const boundary = boundaryQuery.data;
+        const boundary = boundaryQuery.data || {};
         if (mode === 'edit' && boundary) {
             setFormData({
                 description: boundary.description || '',
@@ -80,53 +80,57 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
     const error = boundaryQuery.error;
 
     if (isLoading) content = <div>Loading</div>
-    else if (error) content = <div>error</div>
+    else if (error) content = <div>Error loading risk boundary: {error.message}</div>
     else {
-        const boundary = mode === 'view' && boundaryQuery.data;
+        const boundary = (mode === 'view' && boundaryQuery.data) || {};
 
-        content = mode === 'edit' || mode === 'add' ?
-            <>
-                <div className="flex flex-col gap-3">
-                    {
-                        isOverlapping &&
-                        <div className="text-sm text-red-500">Selected boundary overlaps with existing boundary.</div>
-                    }
-                    <Field {...{name: 'description', label: 'Description', placeholder: 'Enter name of boundary', value: formData.description, onChange: handleChange}} />
+        if (mode === 'view' && Object.keys(boundary).length === 0) {
+            content = <div>No data found for this risk boundary. It may have been deleted or is not accessible.</div>;
+        } else {
+            content = mode === 'edit' || mode === 'add' ?
+                <>
+                    <div className="flex flex-col gap-3">
+                        {
+                            isOverlapping &&
+                            <div className="text-sm text-red-500">Selected boundary overlaps with existing boundary.</div>
+                        }
+                        <Field {...{name: 'description', label: 'Description', placeholder: 'Enter name of boundary', value: formData.description, onChange: handleChange}} />
+                        <div className="flex gap-6">
+                            <Field {...{type: 'number', name: 'lower_bound', label: 'Lower Bound', value: formData.lower_bound, onChange: handleChange}} />
+                            <Field {...{type: 'number', name: 'higher_bound', label: 'Higher Bound', value: formData.higher_bound, onChange: handleChange}} />
+                            <Field {...{type: 'color', name: 'color', label: 'Color', value: formData.color, onChange: handleChange}} />
+                        </div>
+                    </div>
+                    <hr className="border border-red-[#CCC]" />
                     <div className="flex gap-6">
-                        <Field {...{type: 'number', name: 'lower_bound', label: 'Lower Bound', value: formData.lower_bound, onChange: handleChange}} />
-                        <Field {...{type: 'number', name: 'higher_bound', label: 'Higher Bound', value: formData.higher_bound, onChange: handleChange}} />
-                        <Field {...{type: 'color', name: 'color', label: 'Color', value: formData.color, onChange: handleChange}} />
+                        <FormCancelButton text={'Discard'} onClick={onRemoveModal} />
+                        <FormProceedButton disabled={isAddingBoundary || isUpdatingBoundary} text={'Save'} onClick={handleSave} />
                     </div>
-                </div>
-                <hr className="border border-red-[#CCC]" />
-                <div className="flex gap-6">
-                    <FormCancelButton text={'Discard'} onClick={onRemoveModal} />
-                    <FormProceedButton disabled={isAddingBoundary || isUpdatingBoundary} text={'Save'} onClick={handleSave} />
-                </div>
-            </> :
-            <>
-                <div className="flex flex-col gap-3">
-                    <span className="font-medium">Descripition</span>
-                    <p>{boundary.description}</p>
-                </div>
-                <div className="flex gap-6">
+                </> :
+                <>
                     <div className="flex flex-col gap-3">
-                        <span className="font-medium">Lower Bound</span>
-                        <p>{boundary.lower_bound}</p>
+                        <span className="font-medium">Description</span>
+                        <p>{boundary.description || 'No description'}</p>
                     </div>
-                    <div className="flex flex-col gap-3">
-                        <span className="font-medium">Higher Bound</span>
-                        <p>{boundary.higher_bound}</p>
+                    <div className="flex gap-6">
+                        <div className="flex flex-col gap-3">
+                            <span className="font-medium">Lower Bound</span>
+                            <p>{boundary.lower_bound ?? 'Not set'}</p>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <span className="font-medium">Higher Bound</span>
+                            <p>{boundary.higher_bound ?? 'Not set'}</p>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <span className="font-medium">Color</span>
+                            <p className="flex gap-2 items-center">
+                                <ColorChip color={boundary.colour || '#000000'} />
+                                {boundary.colour || 'Not set'}
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex flex-col gap-3">
-                        <span className="font-medium">Color</span>
-                        <p className="flex gap-2 items-center">
-                            <ColorChip color={boundary.colour} />
-                            {boundary.colour}
-                        </p>
-                    </div>
-                </div>
-            </>
+                </>
+        }
     }
 
     return (

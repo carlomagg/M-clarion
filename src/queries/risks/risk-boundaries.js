@@ -8,8 +8,13 @@ async function fetchRiskBoundaries() {
 }
 
 async function fetchRiskBoundary({queryKey}) {
-    const response = await axios.get(`risk/risk-boundaries/${queryKey[2]}/view/`);
-    return response.data['data'];
+    try {
+        const response = await axios.get(`risk/risk-boundaries/${queryKey[2]}/view/`);
+        return response.data['data'] || {}; // Return empty object if data is null/undefined
+    } catch (error) {
+        console.error(`Error fetching risk boundary ${queryKey[2]}:`, error);
+        return {}; // Return empty object on error
+    }
 }
 
 

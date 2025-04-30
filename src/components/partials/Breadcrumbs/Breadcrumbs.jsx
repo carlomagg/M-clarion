@@ -161,7 +161,7 @@ function Breadcrumbs() {
             });
             
             parts.push({
-                label: 'Risk Register', 
+                label: 'Manage Risk', 
                 path: '/risks' 
             });
         } else if (path === '/risks/dashboard') {

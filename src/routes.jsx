@@ -141,7 +141,7 @@ const ROUTES = [
                 children: [
                     {index: true, element: <RiskLog />, breadcrumb: 'Risk Log'},
                     {path: 'dashboard', element: <RiskDashboard />, breadcrumb: 'Dashboard'},
-                    {path: 'register/:step?', element: <RiskRegister />, breadcrumb: 'Risk Register'},
+                    {path: 'register/:step?', element: <RiskRegister />, breadcrumb: 'Manage Risk'},
                     {path: 'approve', element: <div className='p-10 pt-4 flex flex-col gap-6'>
                         <h1 className='text-2xl font-bold'>Risk Approval</h1>
                         <div className='h-full w-full grid place-items-center'>This feature is not implemented yet</div>

@@ -88,7 +88,7 @@ function RiskLog({ approvalMode = false }) {
     const paginatedRisks = sortedRisks.slice(startIndex, startIndex + itemsPerPage);
 
     const pageTitle = approvalMode ? 'Risk Approval' : 'Risk Log';
-    const tableTitle = approvalMode ? 'Risks Pending Approval' : 'Risk Register';
+    const tableTitle = approvalMode ? 'Risks Pending Approval' : 'Manage Risk';
 
     return (
         <div className='p-10 pt-4 max-w-7xl flex flex-col gap-6'>

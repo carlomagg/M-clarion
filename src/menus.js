@@ -71,10 +71,10 @@ export const SIDEBAR_MENU = [
         module: 'risk_management',
         sub_menu: [
             {link: '/risks/dashboard', text: 'Risk Dashboard', permission: 'risk_dashboard'},
-            {link: '/risks', text: 'Risk Register', permission: 'register_risk'},
+            {link: '/risks', text: 'Manage Risk', permission: 'register_risk'},
             {link: '/risks/register', text: 'Enrol Risk', permission: 'register_risk'},
-            {link: '/risks/approve', text: 'Risk Approval', permission: 'register_risk'},
             {link: '/risks/follow-up', text: 'Risk Follow Up', permission: 'register_risk'},
+            {link: '/risks/approve', text: 'Risk Approval', permission: 'register_risk'},
         ]
     },
     {

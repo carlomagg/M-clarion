@@ -1,63 +1,43 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, Loader2, X } from 'lucide-react';
 import styles from './ProcessIndicator.module.css';
-import { useMessage } from '../../../contexts/MessageContext';
+import { useMessage } from '../../../contexts/MessageContext.jsx';
 
 function ProcessIndicator() {
     const [show, setShow] = useState(false);
-    const { message, dispatchMessage } = useMessage();
+    const { messages, dispatchMessage } = useMessage();
+    
+    // Use the most recent message for display
+    const latestMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
     
     // Debug message context
-    console.log('ProcessIndicator - message:', message);
+    console.log('ProcessIndicator - messages:', messages);
+    console.log('ProcessIndicator - latest message:', latestMessage);
     
     // Setup the effect for handling messages - this must be before any conditional return
     useEffect(() => {
-        if (message) {
-            console.log('ProcessIndicator - Message received:', message);
+        if (latestMessage) {
+            console.log('ProcessIndicator - Message received:', latestMessage);
             setShow(true);
-            const timer = setTimeout(() => {
-                setShow(false);
-                setTimeout(() => {
-                    dispatchMessage(null);
-                }, 300);
-            }, 6000);
-            return () => clearTimeout(timer);
+            // No need to manually remove messages - they auto-remove via setTimeout in MessageContext
         } else {
             setShow(false);
         }
-    }, [message, dispatchMessage]);
+    }, [messages]);
     
     // Early return if no message
-    if (!message) return null;
+    if (!latestMessage) return null;
 
-    // Determine display type first
-    const displayType = typeof message === 'string' ? 'success' :
-                       Array.isArray(message) ? 'success' :
-                       typeof message === 'object' && message !== null ? 
-                           (message.type === 'success' ? 'success' :
-                            message.type === 'failed' ? 'error' :
-                            message.type === 'error' ? 'error' :
-                            message.type === 'processing' ? 'loading' :
-                            message.type || 'success') :
-                       'success';
+    // Extract message properties
+    const { type, text } = latestMessage;
 
-    // Handle message text based on message format and type
-    const getDefaultMessage = (type) => {
-        switch(type) {
-            case 'success': return 'Operation completed successfully';
-            case 'error': return 'An error occurred';
-            case 'loading': return 'Processing...';
-            default: return 'Operation completed';
-        }
-    };
-
-    const messageText = typeof message === 'string' ? message :
-                       Array.isArray(message) ? JSON.stringify(message) :
-                       typeof message === 'object' && message !== null ?
-                           (typeof message.text === 'string' ? message.text :
-                            message.text ? JSON.stringify(message.text) :
-                            getDefaultMessage(displayType)) :
-                       getDefaultMessage(displayType);
+    // Determine display type
+    const displayType = 
+        type === 'success' ? 'success' :
+        type === 'failed' ? 'error' :
+        type === 'error' ? 'error' :
+        type === 'processing' ? 'loading' :
+        'success';
 
     const checkmarkIcon = (
         <CheckCircle className="w-4 h-4 text-green-600" />
@@ -79,11 +59,10 @@ function ProcessIndicator() {
                     {displayType === 'error' && exclamationIcon}
                     {(displayType === 'loading' || displayType === 'processing') && <Loader2 className="animate-spin w-4 h-4" />}
                 </div>
-                <div className="flex-1 min-w-0 text-sm font-medium">{messageText}</div>
+                <div className="flex-1 min-w-0 text-sm font-medium">{text}</div>
                 <button 
                     onClick={() => {
                         setShow(false);
-                        setTimeout(() => dispatchMessage(null), 300);
                     }}
                     aria-label="Close notification"
                     className="flex-shrink-0"

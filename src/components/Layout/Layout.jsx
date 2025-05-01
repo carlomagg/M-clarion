@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import './Layout.css';
 import auth from '../../utils/auth';
 import AuthContext from '../../contexts/auth-context';
-import { MessageProvider } from '../../contexts/MessageContext';
+import { MessageProvider } from '../../contexts/MessageContext.jsx';
 import { get } from 'lockr';
 import { useAuth } from '../../contexts/AuthContext';
 

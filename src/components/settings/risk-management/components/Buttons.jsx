@@ -25,3 +25,42 @@ export function CreateNewItemButton({text, onClick, classes = ''}) {
         </button>
     );
 }
+
+export function ViewButton({context}) {
+    const handleClick = () => {
+        const modalType = context.modalType || 'processBoundary';
+        window.dispatchEvent(new CustomEvent('open-modal', {detail: {type: modalType, context}}));
+    };
+
+    return (
+        <button type="button" className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-md text-xs" onClick={handleClick}>
+            View
+        </button>
+    );
+}
+
+export function EditButton({context}) {
+    const handleClick = () => {
+        const modalType = context.modalType || 'processBoundary';
+        window.dispatchEvent(new CustomEvent('open-modal', {detail: {type: modalType, context}}));
+    };
+
+    return (
+        <button type="button" className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded-md text-xs" onClick={handleClick}>
+            Edit
+        </button>
+    );
+}
+
+export function DeleteButton({context}) {
+    const handleClick = () => {
+        const modalType = context.modalType || 'processBoundary';
+        window.dispatchEvent(new CustomEvent('open-modal', {detail: {type: modalType, context: {...context, mode: 'delete'}}}));
+    };
+
+    return (
+        <button type="button" className="bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-md text-xs" onClick={handleClick}>
+            Delete
+        </button>
+    );
+}

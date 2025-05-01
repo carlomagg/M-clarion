@@ -8,46 +8,52 @@ import RiskBoundaryDialog from "../RiskBoundarySetup/components/RiskBoundaryDial
 import ImpactFocusDialog from "../RiskMatrixSetup/components/ImpactFocusDialog";
 import LikelihoodScoreDialog from "../RiskMatrixSetup/components/LikelihoodScoreDialog";
 import RiskResponseDialog from "../RiskResponses/components/ResponseDialog";
+import ProcessBoundaryDialog from "../../process-management/ProcessBoundarySetup/components/ProcessBoundaryDialog";
 
 export default function Modal({type, context, onRemove}) {
-    let dialog;
+    let content;
 
     switch (type) {
-        case 'likelihoodScore':
-            dialog = <LikelihoodScoreDialog context={context} onRemoveModal={onRemove} />;
-            break;
-        case 'impactFocus':
-            dialog = <ImpactFocusDialog context={context} onRemoveModal={onRemove} />;
-            break;
-        case 'riskBoundary':
-            dialog = <RiskBoundaryDialog context={context} onRemoveModal={onRemove} />;
-            break;
         case 'riskCategory':
-            dialog = <RiskCategoryDialog context={context} onRemoveModal={onRemove} />;
+            content = <RiskCategoryDialog context={context} onRemoveModal={onRemove} />;
             break;
         case 'riskClass':
-            dialog = <RiskClassDialog context={context} onRemoveModal={onRemove} />;
-            break;
-        case 'riskAppetite':
-            dialog = <RiskAppetiteDialog context={context} onRemoveModal={onRemove} />;
-            break;
-        case 'familyType':
-            dialog = <FamilyTypeDialog context={context} onRemoveModal={onRemove} />;
-            break;
-        case 'riskResponse':
-            dialog = <RiskResponseDialog context={context} onRemoveModal={onRemove} />;
+            content = <RiskClassDialog context={context} onRemoveModal={onRemove} />;
             break;
         case 'riskIndicator':
-            dialog = <RiskIndicatorDialog context={context} onRemoveModal={onRemove} />;
+            content = <RiskIndicatorDialog context={context} onRemoveModal={onRemove} />;
+            break;
+        case 'riskAppetite':
+            content = <RiskAppetiteDialog context={context} onRemoveModal={onRemove} />;
+            break;
+        case 'riskBoundary':
+            content = <RiskBoundaryDialog context={context} onRemoveModal={onRemove} />;
+            break;
+        case 'processBoundary':
+            content = <ProcessBoundaryDialog context={context} onRemoveModal={onRemove} />;
+            break;
+        case 'controlFamilyType':
+            content = <FamilyTypeDialog context={context} onRemoveModal={onRemove} />;
             break;
         case 'controlEffectiveness':
-            dialog = <ControlEffectivenessDialog context={context} onRemoveModal={onRemove} />;
+            content = <ControlEffectivenessDialog context={context} onRemoveModal={onRemove} />;
             break;
+        case 'riskResponse':
+            content = <RiskResponseDialog context={context} onRemoveModal={onRemove} />;
+            break;
+        case 'impactFocus':
+            content = <ImpactFocusDialog context={context} onRemoveModal={onRemove} />;
+            break;
+        case 'likelihoodScore':
+            content = <LikelihoodScoreDialog context={context} onRemoveModal={onRemove} />;
+            break;
+        default:
+            content = <div>Modal type not supported</div>
     }
 
     return (
-        <div className="fixed top-0 left-0 py-6 w-full h-full bg-black/30 z-50 grid place-items-center">
-            {dialog}
+        <div className='fixed overflow-auto top-0 left-0 z-40 w-screen h-screen bg-gray-500/50 grid place-items-center'>
+            {content}
         </div>
     );
 }

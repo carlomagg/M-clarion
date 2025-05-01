@@ -3,7 +3,7 @@ import logo from "../../../../assets/mclarion-logo.svg"
 import './ResetPassword.css'
 import { get } from 'lockr'
 import ResetPasswordForm from '../../../partials/forms/auth/ResetPasswordForm/ResetPasswordForm';
-import MessageContext from '../../../../contexts/message-context';
+import MessageContext from '../../../../contexts/message-context.jsx';
 import { useNavigate } from 'react-router-dom';
 import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '../../../../utils/consts';
 import { set } from 'lockr';

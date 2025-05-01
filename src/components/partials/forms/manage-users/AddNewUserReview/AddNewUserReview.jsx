@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { IoIosArrowDown, IoIosArrowForward } from 'react-icons/io';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import { useQuery } from '@tanstack/react-query';
-import { permissionsOptions } from '../../../../../queries/permissions-queries';
+import { permissionsOptions } from '../../../../../queries/permissions/permissions-queries';
 import { userSourcesOptions } from '../../../../../queries/users-queries';
 import { MODULES } from '../../../../../utils/consts';
 import styles from './AddNewUserReview.module.css';
@@ -36,6 +36,8 @@ function AddNewUserReview({ formData, onBack, onSubmit, isEditMode, supervisors,
         let modulePermissions = [];
         if (moduleId === MODULES.RISK_MANAGEMENT.id) {
             modulePermissions = permissions.risk || [];
+        } else if (moduleId === MODULES.PROCESS_MANAGEMENT.id) {
+            modulePermissions = permissions.process || [];
         } else {
             modulePermissions = permissions.user || [];
         }
@@ -193,6 +195,9 @@ function AddNewUserReview({ formData, onBack, onSubmit, isEditMode, supervisors,
                                                             {perm.name}
                                                             {perm.type === 'risk' && (
                                                                 <span className="ml-1 text-xs text-pink-600">(Risk)</span>
+                                                            )}
+                                                            {perm.type === 'process' && (
+                                                                <span className="ml-1 text-xs text-blue-600">(Process)</span>
                                                             )}
                                                         </span>
                                                     </div>

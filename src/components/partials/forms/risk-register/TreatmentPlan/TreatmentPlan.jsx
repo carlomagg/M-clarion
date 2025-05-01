@@ -500,10 +500,6 @@ function TreatmentPlan({mode, riskName = ''}) {
                                     <h4 className='font-normal'>Residual Risk Rating</h4>
                                     <RiskRating riskRating={formData.residual_risk_rating} />
                                 </div>
-                                <div className='flex flex-col gap-3 items-start flex-1'>
-                                    <h4 className='font-normal'>Target Risk Rating</h4>
-                                    <RiskRating riskRating={targetRiskRating} />
-                                </div>
                             </Row>
                         </div>
                     </div>

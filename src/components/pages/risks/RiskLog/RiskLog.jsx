@@ -15,17 +15,71 @@ import ActionsDropdown from '../../../partials/dropdowns/ActionsDropdown/Actions
 import { filterItems } from '../../../../utils/helpers';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import useUser from '../../../../hooks/useUser';
+import useDispatchMessage from '../../../../hooks/useDispatchMessage';
 
 function RiskLog({ approvalMode = false }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const user = useUser();
+    const dispatchMessage = useDispatchMessage();
     const itemsPerPage = 10;
+
+    // Function to export risk data to CSV
+    const exportToCSV = () => {
+        if (!risks || risks.length === 0) {
+            dispatchMessage('info', 'No risk data available to export');
+            return;
+        }
+
+        try {
+            // Define the headers
+            const headers = ['Risk ID', 'Title', 'Category', 'Rating', 'Status', 'Owner', 'Created Date'];
+            
+            // Create the CSV content with headers
+            let csvContent = headers.join(',') + '\n';
+            
+            // Add all risk data
+            risks.forEach(risk => {
+                const row = [
+                    risk.risk_id || '',
+                    `"${(risk.Title || '').replace(/"/g, '""')}"`, // Escape double quotes for CSV
+                    `"${(risk.category || '').replace(/"/g, '""')}"`,
+                    risk.risk_rating || '',
+                    `"${(risk.status || '').replace(/"/g, '""')}"`,
+                    `"${(risk.owner || '').replace(/"/g, '""')}"`,
+                    `"${(risk.created_at || '').replace(/"/g, '""')}"`,
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+            
+            // Create a Blob and download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            
+            // Set download attributes
+            link.setAttribute('href', url);
+            link.setAttribute('download', `risk-log-export-${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            
+            // Trigger download
+            link.click();
+            
+            // Clean up
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            dispatchMessage('success', 'Risk data exported successfully');
+        } catch (error) {
+            console.error('Export error:', error);
+            dispatchMessage('failed', 'Failed to export risk data');
+        }
+    };
 
     const actions = [
         {text: 'Import', icon: importIcon, type: 'action', onClick: () => {}, permission: 'add_mulitple_users_file'},
-        {text: 'Export', icon: exportIcon, type: 'action', onClick: () => {}, permission: 'add_multiple_users_emails'},
+        {text: 'Export', icon: exportIcon, type: 'action', onClick: exportToCSV, permission: 'add_multiple_users_emails'},
     ];
 
     const sortOrders = ['asc', 'desc'];

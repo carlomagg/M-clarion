@@ -16,14 +16,30 @@ import { usersOptions } from "../../../../../../queries/users-queries";
 import FollowUpContext from "../contexts/follow-up";
 
 export default function FollowUpHistoryContent({followUps}) {
+    console.log('FollowUpHistoryContent received followUps prop:', followUps);
+    
     const {id: riskID} = useParams();
     const [showForm, setShowForm] = useState(false);
     const [showModal, setShowModal] = useState(false);
-
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    
+    // Force a refresh of followUps data
+    const queryClient = useQueryClient();
+    
+    // Refresh follow-ups data whenever this component is mounted or refreshTrigger changes
+    useEffect(() => {
+        const refreshData = async () => {
+            console.log("Manually refreshing follow-ups data");
+            await queryClient.invalidateQueries({queryKey: ['risks', riskID, 'follow-ups']});
+            await queryClient.refetchQueries({queryKey: ['risks', riskID, 'follow-ups'], force: true});
+        };
+        
+        refreshData();
+    }, [riskID, refreshTrigger, queryClient]);
+    
     // mutations
     const {isPending, mutate: deleteFollowUp} = useDeleteRiskFollowUp({onSuccess, onError});
-
-    const queryClient = useQueryClient();
+    
     const dispatchMessage = useDispatchMessage();
     useEffect(() => {
         let text = 'Deleting Risk Follow Up';
@@ -31,7 +47,16 @@ export default function FollowUpHistoryContent({followUps}) {
     }, [isPending]);
 
     async function onSuccess(data) {
+        console.log('Follow-up added/updated successfully:', data);
         await queryClient.invalidateQueries({queryKey: ['risks', riskID, 'follow-ups']});
+        
+        // Force an immediate refetch and log the result
+        const result = await queryClient.refetchQueries({queryKey: ['risks', riskID, 'follow-ups'], force: true});
+        console.log('Refetched follow-ups data:', result);
+        
+        // Trigger a refresh
+        setRefreshTrigger(prev => prev + 1);
+        
         dispatchMessage('success', data.message);
     }
     function onError(error) {
@@ -109,7 +134,13 @@ function FollowUpForm({mode, riskID, onRemoveForm, followUp = null, inModalView 
     }, [isAddingFollowUp, isUpdatingFollowUp]);
 
     async function onSuccess(data) {
+        console.log('Follow-up added/updated successfully:', data);
         await queryClient.invalidateQueries({queryKey: ['risks', riskID, 'follow-ups']});
+        
+        // Force an immediate refetch and log the result
+        const result = await queryClient.refetchQueries({queryKey: ['risks', riskID, 'follow-ups'], force: true});
+        console.log('Refetched follow-ups data:', result);
+        
         dispatchMessage('success', data.message);
     }
     function onError(error) {
@@ -117,7 +148,7 @@ function FollowUpForm({mode, riskID, onRemoveForm, followUp = null, inModalView 
     }
     function onSettled(data, error) {
         if (!error) {
-            // mode === 'add' && onRemoveForm();
+            mode === 'add' && onRemoveForm();
             mode === 'edit' && removeModal();
         }
     }
@@ -132,6 +163,8 @@ function FollowUpForm({mode, riskID, onRemoveForm, followUp = null, inModalView 
     }
 
     function handleSaveClicked() {
+        // Show loading indicator
+        dispatchMessage('processing', 'Adding risk follow-up...');
         if (mode === 'add') addRiskFollowUp({data: formData});
         else if (mode === 'edit') updateRiskFollowUp({id: followUp.id, data: {...formData, risk: riskID}});
     }
@@ -181,7 +214,13 @@ export function FollowUpDialog({onRemove}) {
     }, [isAddingResponse, isDeletingFollowUp]);
 
     async function onSuccess(data) {
+        console.log('Follow-up added/updated successfully:', data);
         await queryClient.invalidateQueries({queryKey: ['risks', String(riskID), 'follow-ups']});
+        
+        // Force an immediate refetch and log the result
+        const result = await queryClient.refetchQueries({queryKey: ['risks', String(riskID), 'follow-ups'], force: true});
+        console.log('Refetched follow-ups data:', result);
+        
         dispatchMessage('success', data.message);
     }
     function onError(error) {
@@ -189,8 +228,8 @@ export function FollowUpDialog({onRemove}) {
     }
     function onSettled(data, error) {
         if (!error) {
-            // mode === 'add' && onRemoveForm();
-            // mode === 'edit' && removeModal();
+            mode === 'add' && onRemove();
+            mode === 'edit' && onRemove();
         }
     }
 
@@ -272,6 +311,8 @@ export function FollowUpDialog({onRemove}) {
 }
 
 function FollowUpHistoryTable({history, createRecordOptions}) {
+    console.log('FollowUpHistoryTable rendered with history:', history);
+    
     return (
         <div className='mt-3 overflow-auto p-6 flex flex-col gap-6 rounded-lg border border-[#CCC] text-[#3B3B3B] text-sm'>
             <div className="w-[1024px]">
@@ -283,24 +324,28 @@ function FollowUpHistoryTable({history, createRecordOptions}) {
                     <span className='py-4 flex-[2_0]'>CC</span>
                     <span className='py-4 flex-[.5_0]'></span>
                 </header>
-                <ul className='flex flex-col'>
-                    {
-                        history.map((record, i) => {
-                            return (
-                                <li key={i} className='px-4 flex gap-4 items-center'>
-                                    <span className='py-4 flex-[1_0]'>{record.date}</span>
-                                    <span className='py-4 flex-[1_0]'>{record.time}</span>
-                                    <span className='py-4 flex-[3_0]'>{record['follow up note']}</span>
-                                    <span className='py-4 flex-[1_0]'>{record.name}</span>
-                                    <span className='py-4 flex-[2_0]'>{record['responder names'].map(r => r.name).join(', ')}</span>
-                                    <span className='py-4 flex-[.5_0]'>
-                                        <OptionsDropdown options={createRecordOptions(record)} />
-                                    </span>
-                                </li>
-                            );
-                        })
-                    }
-                </ul>
+                {history && history.length > 0 ? (
+                    <ul className='flex flex-col'>
+                        {
+                            history.map((record, i) => {
+                                return (
+                                    <li key={record.id || i} className='px-4 flex gap-4 items-center'>
+                                        <span className='py-4 flex-[1_0]'>{record.date}</span>
+                                        <span className='py-4 flex-[1_0]'>{record.time}</span>
+                                        <span className='py-4 flex-[3_0]'>{record['follow up note']}</span>
+                                        <span className='py-4 flex-[1_0]'>{record.name}</span>
+                                        <span className='py-4 flex-[2_0]'>{record['responder names'].map(r => r.name).join(', ')}</span>
+                                        <span className='py-4 flex-[.5_0]'>
+                                            <OptionsDropdown options={createRecordOptions(record)} />
+                                        </span>
+                                    </li>
+                                );
+                            })
+                        }
+                    </ul>
+                ) : (
+                    <p className='py-4 px-4 text-gray-500 italic'>No follow-up history available.</p>
+                )}
             </div>
         </div>
     );

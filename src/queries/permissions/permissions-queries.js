@@ -67,13 +67,72 @@ export const permissionsOptions = () => ({
             // Debug log to see raw response
             console.log('Raw permissions response:', response.data);
             
+            // Direct inspection of specific fields to handle potential naming differences
+            if (response.data.processes) {
+                console.log('Found "processes" key in API response with', response.data.processes.length, 'items');
+                console.log('Sample process permission:', response.data.processes[0]);
+            } else if (response.data.process) {
+                console.log('Found "process" key in API response with', response.data.process.length, 'items');
+                console.log('Sample process permission:', response.data.process[0]);
+            } else {
+                // Look for other possible keys containing process permissions
+                const possibleKeys = Object.keys(response.data).filter(key => 
+                    key.toLowerCase().includes('process')
+                );
+                
+                if (possibleKeys.length > 0) {
+                    console.log('Found potential process-related keys:', possibleKeys);
+                    possibleKeys.forEach(key => {
+                        if (Array.isArray(response.data[key])) {
+                            console.log(`Key "${key}" contains an array with ${response.data[key].length} items`);
+                            if (response.data[key].length > 0) {
+                                console.log('Sample item:', response.data[key][0]);
+                            }
+                        }
+                    });
+                } else {
+                    console.warn('No process-related keys found in API response');
+                    console.log('Available keys:', Object.keys(response.data));
+                }
+            }
+            
             // Ensure response data has expected structure
             if (!response.data || typeof response.data !== 'object') {
                 throw new Error('Invalid permissions response format');
             }
             
             // Transform API response to match expected format
-            const { user = [], risk = [], core = [] } = response.data;
+            // Note: Handle both 'process' and 'processes' keys and other possible variations
+            const { 
+                user = [], 
+                risk = [], 
+                core = []
+            } = response.data;
+            
+            // Try to find process permissions under any key that might contain them
+            let processPermissionsData = [];
+            if (Array.isArray(response.data.processes) && response.data.processes.length > 0) {
+                processPermissionsData = response.data.processes;
+                console.log('Using "processes" key for process permissions');
+            } else if (Array.isArray(response.data.process) && response.data.process.length > 0) {
+                processPermissionsData = response.data.process;
+                console.log('Using "process" key for process permissions');
+            } else {
+                // Look for other possible keys
+                const possibleKeys = Object.keys(response.data).filter(key => 
+                    key.toLowerCase().includes('process')
+                );
+                
+                for (const key of possibleKeys) {
+                    if (Array.isArray(response.data[key]) && response.data[key].length > 0) {
+                        processPermissionsData = response.data[key];
+                        console.log(`Using "${key}" key for process permissions`);
+                        break;
+                    }
+                }
+            }
+            
+            console.log('Process permissions data:', processPermissionsData);
             
             // Validate and transform each permission type
             const transformPermission = (p) => ({
@@ -98,17 +157,35 @@ export const permissionsOptions = () => ({
                 ...transformPermission(p),
                 type: 'core'
             })) : [];
+            
+            const processPermissions = Array.isArray(processPermissionsData) ? processPermissionsData.map(p => ({
+                ...transformPermission(p),
+                type: 'process'
+            })) : [];
 
             console.log('Transformed permissions:', {
                 user: userPermissions.length,
                 risk: riskPermissions.length,
-                core: corePermissions.length
+                core: corePermissions.length,
+                process: processPermissions.length
             });
+            
+            if (processPermissions.length > 0) {
+                console.log('Process permissions transformed (first 3):', 
+                    processPermissions.slice(0, 3).map(p => ({
+                        id: p.permission_id,
+                        name: p.name
+                    }))
+                );
+            } else {
+                console.warn('No process permissions found in the API response');
+            }
 
             return {
                 user: userPermissions,
                 risk: riskPermissions,
-                core: corePermissions
+                core: corePermissions,
+                process: processPermissions
             };
         } catch (error) {
             console.error('Permission fetch error:', {

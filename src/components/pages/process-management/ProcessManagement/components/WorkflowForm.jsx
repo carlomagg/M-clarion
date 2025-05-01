@@ -8,7 +8,7 @@ import {
 } from "../../../../partials/buttons/FormButtons/FormButtons";
 import ProcessService from "../../../../../services/Process.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMessage } from "../../../../../contexts/MessageContext";
+import { useMessage } from "../../../../../contexts/MessageContext.jsx";
 import { useParams } from "react-router-dom";
 
 import { PiDotsThreeVerticalBold } from "react-icons/pi";

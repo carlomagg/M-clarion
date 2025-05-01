@@ -701,6 +701,35 @@ class ProcessService {
       throw error;
     }
   };
+
+  importMultipleProcesses = async (processesData) => {
+    const token = get(ACCESS_TOKEN_NAME);
+
+    try {
+      console.log("Importing multiple processes:", processesData);
+      
+      const result = await axios.post(
+        "process/process-definitions/multi/",
+        processesData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      return result.data;
+    } catch (error) {
+      console.error("Error in importMultipleProcesses:", error);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Request payload that failed:", JSON.stringify(processesData));
+      }
+      throw error;
+    }
+  };
 }
 
 export default new ProcessService();

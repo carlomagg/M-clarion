@@ -2,6 +2,10 @@ import { queryOptions, useMutation, useQueries, useQuery } from "@tanstack/react
 import axios from "axios";
 import { usersOptions } from "./users-queries";
 import { useEffect, useState } from "react";
+import { permissionsOptions as updatedPermissionsOptions } from "./permissions/permissions-queries";
+
+// Re-export the updated permissionsOptions for compatibility
+export const permissionsOptions = updatedPermissionsOptions;
 
 // query functions
 async function fetchPermssions() {
@@ -48,13 +52,6 @@ async function deleteUserGroup({groupId}) {
 
 
 // query options
-export function permissionsOptions() {
-    return queryOptions({
-        queryKey: ['permissions'],
-        queryFn: fetchPermssions,
-    })
-}
-
 export function permissionOptions(permId) {
     return queryOptions({
         ...permissionsOptions(),

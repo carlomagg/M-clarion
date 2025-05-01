@@ -6,7 +6,7 @@ import SelectDropdown from '../../../dropdowns/SelectDropdown/SelectDropdown';
 import AddNewButton from '../../../buttons/AddNewButton/AddNewButton';
 import { SelectionModal } from '../../../SelectionModal';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { identificationToolsOptions, linkedResourcesOptions, riskAreasOptions, riskIdentificationOptions, riskTriggersOptions, useAddRisk, useSaveExistingRiskIdentificationToDraft, useSaveNewRiskIdentificationToDraft, useUpdateRiskIdentification } from '../../../../../queries/risks/risk-queries';
+import { identificationToolsOptions, linkedResourcesOptions, riskAreasOptions, riskIdentificationOptions, riskTriggersOptions, targetRiskRatingOptions, targetRiskRatingByCategoryOptions, useAddRisk, useSaveExistingRiskIdentificationToDraft, useSaveNewRiskIdentificationToDraft, useUpdateRiskIdentification } from '../../../../../queries/risks/risk-queries';
 import { SelectedItemsList } from '../../../SelectedItemsList';
 import { usersOptions } from '../../../../../queries/users-queries';
 import useDispatchMessage from '../../../../../hooks/useDispatchMessage';
@@ -17,6 +17,7 @@ import AISuggestionBox from '../../../AISuggestion/AISuggestion';
 import CKEAIField from '../../../CKEAIField';
 import useRiskDescriptionSuggestion from '../../../../../queries/ai/risks/risk-description';
 import useRiskTagsSuggestion from '../../../../../queries/ai/risks/risk-tags';
+import RiskRating from '../components/RiskRating';
 
 function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskCategory, setRiskClass}) {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -47,25 +48,53 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
     const [showModal, setShowModal] = useState(null);
 
     // queries
-    const [riskIdentificationQuery, identificationToolsQuery, linkedResourcesQuery, riskTriggersQuery, riskCategoriesQuery, riskClassesQuery, riskAreasQuery, usersQuery] = useQueries({
-        queries: [riskIdentificationOptions(riskID, {enabled: !!riskID}), identificationToolsOptions(), linkedResourcesOptions(), riskTriggersOptions(), riskCategoriesOptions(), riskClassesOptions(), riskAreasOptions(), usersOptions()]
+    const [riskIdentificationQuery, identificationToolsQuery, linkedResourcesQuery, riskTriggersQuery, riskCategoriesQuery, riskClassesQuery, riskAreasQuery, usersQuery, targetRiskRatingQuery, targetRiskRatingByCategoryQuery] = useQueries({
+        queries: [
+            riskIdentificationOptions(riskID, {enabled: !!riskID}), 
+            identificationToolsOptions(), 
+            linkedResourcesOptions(), 
+            riskTriggersOptions(), 
+            riskCategoriesOptions(), 
+            riskClassesOptions(), 
+            riskAreasOptions(), 
+            usersOptions(),
+            targetRiskRatingOptions(riskID, {enabled: !!riskID}),
+            targetRiskRatingByCategoryOptions(formData.category_id, {enabled: !!formData.category_id})
+        ]
     });
     
     console.log('RiskIdentificationForm - Query loading:', riskIdentificationQuery.isLoading);
     console.log('RiskIdentificationForm - Query error:', riskIdentificationQuery.error);
     console.log('RiskIdentificationForm - Query data:', riskIdentificationQuery.data);
 
+    // Add debugging for target risk rating
+    console.log('Target Risk Rating Query:', {
+        targetRiskRatingQuery: targetRiskRatingQuery.data,
+        targetRiskRatingByCategoryQuery: targetRiskRatingByCategoryQuery.data,
+        selectedCategoryId: formData.category_id,
+        finalRiskRatingValue: riskID ? (targetRiskRatingQuery.data || 0) : (targetRiskRatingByCategoryQuery.data || 0)
+    });
+
     const selectedCategory = riskCategoriesQuery.data?.find(cat => cat.id === formData.category_id)?.name || '';
     const selectedClass = riskClassesQuery.data?.find(c => c.class_id === formData.class_id)?.class_name || '';
 
-    // Clear class_id when category_id changes
+    // Clear class_id when category_id changes and trigger target risk rating refresh
     useEffect(() => {
         // We need to reset class_id regardless of whether a new category is selected
         setFormData(prev => ({
             ...prev,
             class_id: '' // Reset class when category changes
         }));
-    }, [formData.category_id]);
+        
+        // If we have a category ID, make sure to refetch the target risk rating
+        if (formData.category_id) {
+            console.log('Category changed, refetching target risk rating for category ID:', formData.category_id);
+            // Force a refetch of the target risk rating
+            queryClient.refetchQueries({
+                queryKey: ['risks', formData.category_id, 'category-target-rating']
+            });
+        }
+    }, [formData.category_id, queryClient]);
 
     // sync risk name, category and class states declared in containing component
     useEffect(() => {
@@ -173,11 +202,17 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
         (!!riskID ? saveExistingRiskToDraft : saveNewRiskToDraft)({data: formData});
     }
 
-    const isLoading = (riskID && riskIdentificationQuery.isLoading) || identificationToolsQuery.isLoading || linkedResourcesQuery.isLoading || riskTriggersQuery.isLoading || riskCategoriesQuery.isLoading || riskClassesQuery.isLoading || riskAreasQuery.isLoading || usersQuery.isLoading;
+    const isLoading = (riskID && riskIdentificationQuery.isLoading) || identificationToolsQuery.isLoading || linkedResourcesQuery.isLoading || riskTriggersQuery.isLoading || riskCategoriesQuery.isLoading || riskClassesQuery.isLoading || riskAreasQuery.isLoading || usersQuery.isLoading || (riskID && targetRiskRatingQuery.isLoading) || (formData.category_id && targetRiskRatingByCategoryQuery.isLoading);
 
-    const error = identificationToolsQuery.error || linkedResourcesQuery.error || riskTriggersQuery.error || riskCategoriesQuery.error || riskClassesQuery.error || riskAreasQuery.error || usersQuery.error;
+    const allErrors = identificationToolsQuery.error || linkedResourcesQuery.error || riskTriggersQuery.error || riskCategoriesQuery.error || riskClassesQuery.error || riskAreasQuery.error || usersQuery.error || (riskID && targetRiskRatingQuery.error) || (formData.category_id && targetRiskRatingByCategoryQuery.error);
 
     const riskIdentificationError = riskID && riskIdentificationQuery.error;
+
+    // Use targetRiskRatingQuery.data for existing risks, and targetRiskRatingByCategoryQuery.data for new risks with a category
+    // Make sure we handle the case where the value is 0 properly - it's a valid value, not a fallback
+    const targetRiskRating = riskID 
+        ? (targetRiskRatingQuery.data !== undefined ? targetRiskRatingQuery.data : 0) 
+        : (targetRiskRatingByCategoryQuery.data !== undefined ? targetRiskRatingByCategoryQuery.data : 0);
 
     if (isLoading) {
         return <div className="p-10 bg-white rounded-lg border border-[#CCC] flex justify-center items-center">
@@ -185,11 +220,11 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
         </div>
     }
 
-    if (error) {
+    if (allErrors) {
         return <div className="p-10 bg-white rounded-lg border border-[#CCC] flex flex-col gap-4">
             <h3 className="text-red-600 font-semibold">Error Loading Data</h3>
             <p>There was an error loading some required data. Please try again or contact support.</p>
-            <p className="text-sm text-gray-600">Error details: {error.message}</p>
+            <p className="text-sm text-gray-600">Error details: {allErrors.message}</p>
         </div>
     }
 
@@ -294,22 +329,43 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
                     {/* <h3 className='text-lg font-semibold text-[#727272]'>Risk ID:</h3> */}
                     <div className='mt-3 flex flex-col gap-6'>
                         <Field {...{name: 'name', label: 'Name', placeholder: 'Enter risk name', value: formData.name, onChange: handleChange}} />
-                        <div className='flex gap-6'>
-                            <div className='w-[35%]'>
-                                <RiskCategoryDropdown categories={riskCategories} selected={formData.category_id} onChange={handleChange} />
+                        <div className='flex flex-col gap-3'>
+                            <div className='flex gap-6'>
+                                <div className='w-[35%]'>
+                                    <RiskCategoryDropdown categories={riskCategories} selected={formData.category_id} onChange={handleChange} />
+                                </div>
+                                <div className='w-[35%]'>
+                                    <RiskClassDropdown 
+                                        classes={classesToShow} 
+                                        selected={formData.class_id} 
+                                        onChange={handleChange} 
+                                        totalClassCount={allRiskClasses.length}
+                                        isAllClasses={selectedCategoryId && filteredRiskClasses.length === 0 && classesToShow.length > 0}
+                                    />
+                                </div>
+                                <div className='w-[35%]'>
+                                    <Field {...{type: 'date', label: 'Date Identified', name: 'date', value: formData.date, onChange: handleChange}} />
+                                </div>
                             </div>
-                            <div className='w-[35%]'>
-                                <RiskClassDropdown 
-                                    classes={classesToShow} 
-                                    selected={formData.class_id} 
-                                    onChange={handleChange} 
-                                    totalClassCount={allRiskClasses.length}
-                                    isAllClasses={selectedCategoryId && filteredRiskClasses.length === 0 && classesToShow.length > 0}
-                                />
-                            </div>
-                            <div className='w-[35%]'>
-                                <Field {...{type: 'date', label: 'Date Identified', name: 'date', value: formData.date, onChange: handleChange}} />
-                            </div>
+                            {formData.category_id && (
+                                <div className='flex mt-2 p-2 bg-gray-50 rounded-md border border-gray-100'>
+                                    <div className='flex flex-col gap-2 items-start'>
+                                        <h4 className='font-medium text-sm'>Target Risk Rating</h4>
+                                        <div className="flex items-center gap-2">
+                                            {console.log('About to render RiskRating with value:', {
+                                                targetRiskRating,
+                                                isNumber: typeof targetRiskRating === 'number',
+                                                isValidRating: targetRiskRating !== undefined && targetRiskRating !== null,
+                                                riskID,
+                                                fromRiskQuery: targetRiskRatingQuery.data,
+                                                fromCategoryQuery: targetRiskRatingByCategoryQuery.data
+                                            })}
+                                            <RiskRating riskRating={targetRiskRating} />
+                                            <span className="text-xs text-gray-500">Based on category risk appetite</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <label className='flex gap-2 items-center'>
                             <input type="checkbox" onChange={toggleAIAssistance} />

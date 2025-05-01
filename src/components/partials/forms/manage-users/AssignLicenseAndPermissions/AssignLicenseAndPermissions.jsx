@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { IoIosArrowDown, IoIosArrowForward } from 'react-icons/io';
 import { useQuery } from "@tanstack/react-query";
-import { permissionsOptions } from "../../../../../queries/permissions-queries.js";
+import { permissionsOptions } from "../../../../../queries/permissions/permissions-queries.js";
 import { modulesOptions } from "../../../../../queries/modules/modules-queries.js";
 import { licensesOptions } from "../../../../../queries/license-queries.js";
 import { MODULES } from "../../../../../utils/consts";
@@ -106,10 +106,17 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack, us
     useEffect(() => {
         if (apiPermissions && modules) {
             // Create permissions array dynamically based on modules
+            console.log('API Permissions received in AssignLicenseAndPermissions:', apiPermissions);
+            console.log('Process permissions available:', apiPermissions.process ? apiPermissions.process.length : 0);
+            
             const newPermissions = modules.map(module => {
                 const moduleId = parseInt(module.module_id, 10);
                 let modulePermissions = [];
                 const userPermissions = apiPermissions.user || [];
+                const processPermissions = apiPermissions.process || [];
+                
+                console.log(`Processing module ${module.module_name} (ID: ${moduleId})`);
+                console.log(`Process permissions count: ${processPermissions.length}`);
 
                 // Map the module to the correct type based on MODULES constant
                 if (moduleId === MODULES.RISK_MANAGEMENT.id) {
@@ -137,6 +144,15 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack, us
                 } else if (moduleId === MODULES.PROCESS_MANAGEMENT.id) {
                     modulePermissions = [
                         {
+                            title: "Process Management Permissions",
+                            permissions: processPermissions.map(p => ({
+                                ...p,
+                                permission_id: parseInt(p.id || p.permission_id, 10),
+                                name: p.name,
+                                description: p.description
+                            }))
+                        },
+                        {
                             title: "User Management Permissions",
                             permissions: userPermissions.map(p => ({
                                 ...p,
@@ -146,6 +162,8 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack, us
                             }))
                         }
                     ];
+                    
+                    console.log('Process module permissions in AssignLicenseAndPermissions:', JSON.stringify(modulePermissions, null, 2));
                 }
 
                 return {
@@ -153,10 +171,11 @@ function AssignLicenseAndPermissions({ formData, setFormData, onNext, onBack, us
                     name: `${module.module_name}`,
                     module_id: moduleId,
                     permissionGroups: modulePermissions,
-                    type: moduleId === MODULES.RISK_MANAGEMENT.id ? 'risk' : 'user'
+                    type: moduleId === MODULES.RISK_MANAGEMENT.id ? 'risk' : (moduleId === MODULES.PROCESS_MANAGEMENT.id ? 'process' : 'user')
                 };
             });
             
+            console.log('Setting permissions in AssignLicenseAndPermissions:', newPermissions);
             setPermissions(newPermissions);
         }
     }, [apiPermissions, modules]);

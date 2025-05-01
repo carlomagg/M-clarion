@@ -190,25 +190,21 @@ const Review = ({ setActiveTab, processData, onEdit }) => {
     if (!priority) return 'Not specified';
     
     // Check if priority is already a string name
-    if (typeof priority === 'string' && ['High', 'Medium', 'Low', 'Extreme', 'Action Plan'].includes(priority)) {
+    if (typeof priority === 'string' && ['Low', 'Medium', 'Critical'].includes(priority)) {
       return priority;
     }
     
     // Convert to string for consistent handling
     const priorityId = String(priority).trim();
     
-    // Direct mapping from priority ID to name
+    // Direct mapping from priority ID to name based on the actual API data
     switch (priorityId) {
       case '1':
-        return 'High';
+        return 'Low';
       case '2':
         return 'Medium';
-      case '3':
-        return 'Low';
       case '4':
-        return 'Extreme';
-      case '5':
-        return 'Action Plan';
+        return 'Critical';
       default:
         return 'Not specified';
     }
@@ -221,18 +217,14 @@ const Review = ({ setActiveTab, processData, onEdit }) => {
     // Get the priority name if it's an ID
     const priorityName = getPriorityName(priority);
     
-    // Map the priority name to the correct color
+    // Map the priority name to the correct color based on actual API data
     switch (priorityName) {
-      case 'High':
-        return 'bg-[#DD121E]';
-      case 'Medium':
-        return 'bg-[#FFA500]';
       case 'Low':
-        return 'bg-[#28A745]';
-      case 'Extreme':
-        return 'bg-[#DD121E]';
-      case 'Action Plan':
-        return 'bg-[#3b82f6]';
+        return 'bg-[#00FF00]';
+      case 'Medium':
+        return 'bg-[#FFFF00]';
+      case 'Critical':
+        return 'bg-[#FF0000]';
       default:
         return 'bg-gray-500';
     }

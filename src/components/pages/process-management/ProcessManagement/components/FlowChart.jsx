@@ -10,7 +10,7 @@ import { CKEField } from "../../../../partials/Elements/Elements";
 import axios from "axios";
 import { get } from "lockr";
 import { ACCESS_TOKEN_NAME, BASE_API_URL } from "../../../../../utils/consts";
-import { useMessage } from "../../../../../contexts/MessageContext";
+import { useMessage } from "../../../../../contexts/MessageContext.jsx";
 import ProcessService from "../../../../../services/Process.service";
 
 // New component to display process info header

@@ -57,14 +57,98 @@ async function fetchTargetRiskRating({queryKey}) {
     }
 }
 
+// New function to fetch target risk rating by category ID
+async function fetchTargetRiskRatingByCategory({queryKey}) {
+    const categoryId = queryKey[1];
+    if (!categoryId) return 0;
+    
+    // Try different possible API endpoints to get the target risk rating for this category
+    try {
+        // First try the direct risk target endpoint if it exists
+        console.log('Trying direct risk category target endpoint');
+        try {
+            const directUrl = `risk/risk-category/${categoryId}/target-rating/`;
+            console.log('Direct target risk URL:', directUrl);
+            const directResponse = await axios.get(directUrl);
+            console.log('Direct target risk response:', directResponse.data);
+            
+            if (directResponse.data && directResponse.data.target_risk_rating !== undefined) {
+                console.log('Found target_risk_rating in direct response:', directResponse.data.target_risk_rating);
+                return directResponse.data.target_risk_rating;
+            }
+        } catch (directError) {
+            console.log('Direct endpoint not available, falling back to risk appetite endpoint');
+        }
+        
+        // Fall back to the risk appetite endpoint
+        const url = `risk/risk-appetites/by-category/${categoryId}/`;
+        console.log('Target risk by category URL:', url);
+        const response = await axios.get(url);
+        console.log('Target risk by category response:', response.data);
+        
+        // Handle different possible response formats
+        if (response.data) {
+            // If the response has a data property that contains the risk appetite
+            if (response.data.data) {
+                const acceptable_level = response.data.data.acceptable_level;
+                console.log('Found acceptable_level in data.data:', acceptable_level);
+                
+                // Return the acceptable level even if it's 0 (valid value)
+                if (acceptable_level !== undefined && acceptable_level !== null) {
+                    return acceptable_level;
+                }
+            } 
+            
+            // Alternative format: direct access to the response data
+            if (response.data.acceptable_level !== undefined) {
+                console.log('Found acceptable_level directly in data:', response.data.acceptable_level);
+                return response.data.acceptable_level;
+            }
+            
+            // If we have a target_risk_rating field
+            if (response.data.target_risk_rating !== undefined) {
+                console.log('Found target_risk_rating in data:', response.data.target_risk_rating);
+                return response.data.target_risk_rating;
+            }
+        }
+        
+        console.log('No valid target risk rating found in response, using default value');
+        return 0; // Default value if we couldn't find the value in any expected format
+    } catch (error) {
+        console.error('Error fetching target risk rating by category:', error);
+        return 0; // Default value when fetching fails
+    }
+}
+
 async function fetchRiskApprovers({queryKey}) {
     const response = await axios.get(`risk/risk/${queryKey[1]}/view-who-to-approve/`);
     return response.data['approvers'];
 }
 
+// Add this new function to fetch a risk's approval history
+async function fetchRiskApprovalHistory({queryKey}) {
+    const response = await axios.get(`risk/risk/${queryKey[1]}/approval-history/`);
+    return response.data;
+}
+
+// Add this new function to remove an approver from a risk
+async function removeRiskApprover(riskId, userId) {
+    const response = await axios.delete(`risk/risk/${riskId}/user/${userId}/remove-who-to-approve/`);
+    return response.data;
+}
+
 async function fetchRiskFollowUps({queryKey}) {
-    const response = await axios.get(`risk/risks/${queryKey[1]}/rf-trackers/view-all/`);
-    return response.data['Risk Followup Trackers'];
+    try {
+        console.log('Fetching risk follow-ups for risk ID:', queryKey[1]);
+        const response = await axios.get(`risk/risks/${queryKey[1]}/rf-trackers/view-all/`);
+        console.log('Follow-ups API response:', response.data);
+        const followUps = response.data['Risk Followup Trackers'] || [];
+        console.log('Extracted follow-ups:', followUps);
+        return followUps;
+    } catch (error) {
+        console.error('Error fetching risk follow-ups:', error);
+        throw error;
+    }
 }
 
 // risk events
@@ -343,6 +427,15 @@ export function targetRiskRatingOptions(riskId, options) {
     })
 }
 
+// New function for target risk rating by category
+export function targetRiskRatingByCategoryOptions(categoryId, options) {
+    return queryOptions({
+        queryKey: ['risks', categoryId, 'category-target-rating'],
+        queryFn: fetchTargetRiskRatingByCategory,
+        ...options
+    })
+}
+
 export function riskApproversOptions(riskId, options) {
     return queryOptions({
         queryKey: ['risks', riskId, 'approvers'],
@@ -355,6 +448,7 @@ export function riskFollowUpsOptions(riskId, options) {
     return queryOptions({
         queryKey: ['risks', riskId, 'follow-ups'],
         queryFn: fetchRiskFollowUps,
+        staleTime: 0,
         ...options
     })
 }
@@ -668,6 +762,22 @@ export function useUpdateConsequence(callbacks) {
 export function useDeleteConsequence(callbacks) {
     return useMutation({
         mutationFn: deleteConsequence,
+        ...callbacks
+    });
+}
+
+// Add these new exported functions after other export functions
+export function riskApprovalHistoryOptions(riskId, options) {
+    return {
+        queryKey: ['risk-approval-history', riskId],
+        queryFn: fetchRiskApprovalHistory,
+        ...options
+    };
+}
+
+export function useRemoveRiskApprover(callbacks) {
+    return useMutation({
+        mutationFn: ({riskId, userId}) => removeRiskApprover(riskId, userId),
         ...callbacks
     });
 }

@@ -16,9 +16,9 @@ const ImportTab = () => {
   const tabToRender = () => {
     switch (activeTab) {
       case "Import Process":
-        return <ImportProcess />;
+        return <ImportProcess setActiveTab={setActiveTab} />;
       case "Review Imported Process":
-        return <ReviewImportedProcess />;
+        return <ReviewImportedProcess setActiveTab={setActiveTab} />;
 
       default:
         return null;

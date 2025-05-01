@@ -4,7 +4,7 @@ import { useDispatch } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ProcessService from '../../../../services/Process.service';
 import { toggleShowAssignedProcess } from '../../../../config/slices/globalSlice';
-import { useMessage } from '../../../../contexts/MessageContext';
+import { useMessage } from '../../../../contexts/MessageContext.jsx';
 import ProcessAssignment from '../ProcessManagement/components/ProcessAssignment';
 import SelectDropdown from '../../../partials/dropdowns/SelectDropdown/SelectDropdown';
 import PageTitle from '../../../partials/PageTitle/PageTitle';

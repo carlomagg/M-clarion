@@ -7,7 +7,7 @@ import MultiSelectorDropdown from "../../../../partials/dropdowns/MultiSelectorD
 import { CKEField } from "../../../../partials/Elements/Elements";
 import ProcessService from "../../../../../services/Process.service";
 import { useQuery } from "@tanstack/react-query";
-import { useMessage } from "../../../../../contexts/MessageContext";
+import { useMessage } from "../../../../../contexts/MessageContext.jsx";
 
 // Debug helper for message alerts
 const showDebugAlert = (message) => {
@@ -90,11 +90,16 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
     // Only attempt to update the priority if we have valid data
     if (PriorityLevel && PriorityLevel.process_boundaries && Array.isArray(PriorityLevel.process_boundaries) && PriorityLevel.process_boundaries.length > 0) {
       // We have a valid priority level, use it
-      setAssignmentForm(prevForm => ({
-        ...prevForm,
-        priority: PriorityLevel.process_boundaries[0].id
-      }));
-      console.log("Set priority level to:", PriorityLevel.process_boundaries[0].id);
+      // Only set default if priority isn't already set
+      if (!assignmentForm.priority) {
+        setAssignmentForm(prevForm => ({
+          ...prevForm,
+          priority: PriorityLevel.process_boundaries[0].id
+        }));
+        console.log("Set priority level to:", PriorityLevel.process_boundaries[0].id);
+      } else {
+        console.log("Priority already set to:", assignmentForm.priority);
+      }
     } else {
       // No valid priority level data, use default
       console.log("No valid priority levels from API, using default");
@@ -102,23 +107,25 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
       // Don't try to set to undefined or null
       setAssignmentForm(prevForm => ({
         ...prevForm,
-        priority: prevForm.priority || "default"
+        priority: prevForm.priority || 1 // Default to id 1 (Low)
       }));
     }
   }, [PriorityLevel]);
 
-  console.log(PriorityLevel);
+  console.log("Current priority:", assignmentForm.priority);
+  console.log("Priority levels:", PriorityLevel);
 
   const handlePriorityClick = (level) => {
+    console.log("Selected priority level:", level.id);
     setAssignmentForm((prevForm) => ({
       ...prevForm, // Spread the previous state
-      ["priority"]: level.id, // Update the specific field
+      priority: level.id, // Update the specific field
     }));
     
     // Also update the parent form data to ensure it's passed to review
     if (updateFormData) {
       updateFormData({
-        priority: level.id
+        priorityLevel: level.id
       });
     }
   };
@@ -397,38 +404,22 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
           {PriorityLevel && PriorityLevel.process_boundaries && Array.isArray(PriorityLevel.process_boundaries) && PriorityLevel.process_boundaries.length > 0 ? (
             // Render priority levels from API
             PriorityLevel.process_boundaries.map((priorityLevel, index) => {
-              // Default styling
-              let bgColor = "bg-gray-200";
-              let textColor = "text-gray-700";
-              
-              // Apply colors based on priority level description
-              const description = priorityLevel.description ? priorityLevel.description.toLowerCase() : "";
-              
-              if (description.includes("high")) {
-                bgColor = "bg-red-500";
-                textColor = "text-white";
-              } else if (description.includes("medium")) {
-                bgColor = "bg-yellow-500";
-                textColor = "text-white";
-              } else if (description.includes("low")) {
-                bgColor = "bg-green-500";
-                textColor = "text-white";
-              } else if (description.includes("extreme")) {
-                bgColor = "bg-red-500";
-                textColor = "text-white";
-              } else if (description.includes("action plan")) {
-                bgColor = "bg-blue-500";
-                textColor = "text-white";
-              }
+              // Use the color from the API data directly
+              const bgColor = priorityLevel.colour || "bg-gray-200";
+              const textColor = "text-white"; // Use white text for better contrast
               
               // For selected item, add a highlight effect without changing the color
-              if (assignmentForm.priority === priorityLevel.id) {
+              const isSelected = Number(assignmentForm.priority) === Number(priorityLevel.id);
+              console.log(`Comparing ${assignmentForm.priority} with ${priorityLevel.id}: ${isSelected}`);
+              
+              if (isSelected) {
                 // Add border highlight for selected item
                 return (
                   <button
                     key={index}
                     onClick={() => handlePriorityClick(priorityLevel)}
-                    className={`px-8 py-4 rounded-md ${bgColor} ${textColor} ring-2 ring-offset-2 ring-blue-500 font-medium`}
+                    className={`px-8 py-4 rounded-md ring-2 ring-offset-2 ring-blue-500 font-medium`}
+                    style={{ backgroundColor: bgColor, color: textColor }}
                   >
                     {priorityLevel.description}
                   </button>
@@ -439,7 +430,8 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
                 <button
                   key={index}
                   onClick={() => handlePriorityClick(priorityLevel)}
-                  className={`px-8 py-4 rounded-md ${bgColor} ${textColor} font-medium`}
+                  className={`px-8 py-4 rounded-md`}
+                  style={{ backgroundColor: bgColor, color: textColor }}
                 >
                   {priorityLevel.description}
                 </button>
@@ -451,43 +443,24 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
               {/* Default priority level buttons */}
               <div className="flex flex-wrap gap-3 justify-start">
                 {[
-                  { id: "high", description: "High" },
-                  { id: "medium", description: "Medium" },
-                  { id: "low", description: "Low" },
-                  { id: "extreme", description: "Extreme" },
-                  { id: "action", description: "Action Plan" }
+                  { id: 1, description: "Low", colour: "#00FF00", lower_bound: 0, higher_bound: 20 },
+                  { id: 2, description: "Medium", colour: "#FFFF00", lower_bound: 21, higher_bound: 50 },
+                  { id: 4, description: "Critical", colour: "#FF0000", lower_bound: 81, higher_bound: 100 }
                 ].map((level, index) => {
-                  // Default styling
-                  let bgColor = "bg-gray-200";
-                  let textColor = "text-gray-700";
-                  
-                  // Apply colors based on priority level description
-                  const description = level.description.toLowerCase();
-                  
-                  if (description.includes("high")) {
-                    bgColor = "bg-red-500";
-                    textColor = "text-white";
-                  } else if (description.includes("medium")) {
-                    bgColor = "bg-yellow-500";
-                    textColor = "text-white";
-                  } else if (description.includes("low")) {
-                    bgColor = "bg-green-500";
-                    textColor = "text-white";
-                  } else if (description.includes("extreme")) {
-                    bgColor = "bg-red-500";
-                    textColor = "text-white";
-                  } else if (description.includes("action plan")) {
-                    bgColor = "bg-blue-500";
-                    textColor = "text-white";
-                  }
+                  // Use the color from the fallback data
+                  const bgColor = level.colour || "bg-gray-200";
+                  const textColor = "text-white";
                   
                   // Highlight selected button
-                  if (assignmentForm.priority === level.id) {
+                  const isSelected = Number(assignmentForm.priority) === Number(level.id);
+                  
+                  if (isSelected) {
                     return (
                       <button
                         key={index}
                         onClick={() => handlePriorityClick(level)}
-                        className={`px-8 py-4 rounded-md ${bgColor} ${textColor} ring-2 ring-offset-2 ring-blue-500 font-medium`}
+                        className={`px-8 py-4 rounded-md ring-2 ring-offset-2 ring-blue-500 font-medium`}
+                        style={{ backgroundColor: bgColor, color: textColor }}
                       >
                         {level.description}
                       </button>
@@ -498,7 +471,8 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
                     <button
                       key={index}
                       onClick={() => handlePriorityClick(level)}
-                      className={`px-8 py-4 rounded-md ${bgColor} ${textColor} font-medium`}
+                      className={`px-8 py-4 rounded-md font-medium`}
+                      style={{ backgroundColor: bgColor, color: textColor }}
                     >
                       {level.description}
                     </button>

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDispatch } from 'react-redux';
 import ProcessService from '../../../../../services/Process.service';
 import { toggleShowAssignedProcess } from '../../../../../config/slices/globalSlice';
-import { useMessage } from '../../../../../contexts/MessageContext';
+import { useMessage } from '../../../../../contexts/MessageContext.jsx';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 const ProcessSelector = () => {

@@ -125,6 +125,7 @@ export const SETTINGS_MENU = [
     // {link: 'user-preferences', text: 'User preferences', icon: home,},
     {link: 'organizational-structure', text: 'Structure', icon: home, permission: 'organizational_structure'},
     {link: 'risk-management', text: 'RM Parameters', icon: home, permission: 'organizational_structure'},
+    {link: 'process-management', text: 'PM Parameters', icon: home, permission: 'organizational_structure'},
     // {link: 'not-implemented', text: 'System Preferences', icon: home, permission: 'system_preferences'},
     // {link: 'not-implemented', text: 'Organizational Hierarchy', icon: governance, permission: 'organizational_heirarchy'},
     // {link: 'not-implemented', text: 'Security Policies', icon: strategy, permission: 'security_policies'},

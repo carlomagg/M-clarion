@@ -47,10 +47,6 @@ export default function AnalysisContent({riskAnalysis, likelihoodScores, impactS
                             <h4 className='font-normal'>Residual Risk Rating</h4>
                             <RiskRating riskRating={residualRiskRating} />
                         </div>
-                        <div className='flex flex-col gap-3 items-start flex-1'>
-                            <h4 className='font-normal'>Target Risk Rating</h4>
-                            <RiskRating riskRating={4} />
-                        </div>
                     </Row>
                 </div>
             </div>

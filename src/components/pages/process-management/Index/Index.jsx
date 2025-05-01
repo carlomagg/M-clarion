@@ -19,7 +19,7 @@ import { toggleShowAssignedProcess } from "../../../../config/slices/globalSlice
 import { useQuery } from "@tanstack/react-query";
 import ProcessService from "../../../../services/Process.service";
 import ImportTab from "../ProcessManagement/components/ImportTab";
-import { useMessage } from "../../../../contexts/MessageContext";
+import { useMessage } from "../../../../contexts/MessageContext.jsx";
 
 const Index = () => {
   const [showItemForm, setShowItemForm] = useState();
@@ -58,6 +58,57 @@ const Index = () => {
   };
   const importTab = () => {
     setShowImportTab(true);
+  };
+
+  // Function to export process data to CSV
+  const exportToCSV = () => {
+    if (!processDataLog?.Processes || processDataLog.Processes.length === 0) {
+      dispatchMessage('info', 'No process data available to export');
+      return;
+    }
+
+    try {
+      // Define the headers for the CSV
+      const headers = ['Process ID', 'Title', 'Status', 'Type', 'Created Date', 'Version'];
+      
+      // Create the CSV content with headers
+      let csvContent = headers.join(',') + '\n';
+      
+      // Add all process data
+      processDataLog.Processes.forEach(process => {
+        const row = [
+          process.id || '',
+          `"${(process.name || '').replace(/"/g, '""')}"`, // Escape double quotes for CSV
+          `"${(process.status || '').replace(/"/g, '""')}"`,
+          `"${(process.type || '').replace(/"/g, '""')}"`,
+          `"${(process.created_at || '').replace(/"/g, '""')}"`,
+          process.version || '',
+        ];
+        csvContent += row.join(',') + '\n';
+      });
+      
+      // Create a Blob and download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      // Set download attributes
+      link.setAttribute('href', url);
+      link.setAttribute('download', `process-catalog-export-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      
+      // Trigger download
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      dispatchMessage('success', 'Process data exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      dispatchMessage('failed', 'Failed to export process data');
+    }
   };
 
   const categories = [
@@ -369,14 +420,17 @@ const Index = () => {
                   icon={importIcon}
                   onClick={importTab}
                 />
-                <LinkButton text={"Export"} icon={exportIcon} />
+                <LinkButton 
+                  text={"Export"} 
+                  icon={exportIcon}
+                  onClick={exportToCSV}
+                />
               </>
 
               <LinkButton
                 text={"Create new process"}
                 icon={PlusIcon}
                 onClick={createNewProcess}
-                // onClick={ => {}}
               />
             </div>
           </div>

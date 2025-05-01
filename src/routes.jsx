@@ -61,6 +61,9 @@ import useUser from './hooks/useUser';
 import ProcessView from './components/pages/process-management/ProcessView/ProcessView.jsx'
 import ProcessSelector from './components/pages/process-management/ProcessSelector/ProcessSelector.jsx'
 import ProcessTaskDetails from './components/pages/process-management/ProcessTaskDetails/ProcessTaskDetails.jsx'
+import ProcessManagementLayout from './components/settings/process-management/Layout';
+import SettingsProcessManagementIndex from './components/settings/process-management/Index/Index';
+import ProcessBoundarySetup from './components/settings/process-management/ProcessBoundarySetup/ProcessBoundarySetup';
 
 // Create a wrapper component for admin-only routes
 function AdminRoute({ children }) {
@@ -142,10 +145,7 @@ const ROUTES = [
                     {index: true, element: <RiskLog />, breadcrumb: 'Risk Log'},
                     {path: 'dashboard', element: <RiskDashboard />, breadcrumb: 'Dashboard'},
                     {path: 'register/:step?', element: <RiskRegister />, breadcrumb: 'Manage Risk'},
-                    {path: 'approve', element: <div className='p-10 pt-4 flex flex-col gap-6'>
-                        <h1 className='text-2xl font-bold'>Risk Approval</h1>
-                        <div className='h-full w-full grid place-items-center'>This feature is not implemented yet</div>
-                    </div>, breadcrumb: 'Risk Approval'},
+                    {path: 'approve', element: <RiskApprove />, breadcrumb: 'Risk Approval'},
                     {path: 'follow-up', element: <RiskFollowUp />, breadcrumb: 'Follow Up'},
                     {path: ':id', element: <RiskReview />, breadcrumb: RiskDynamicBreadcrumb},
                     {path: ':id/update', element: <RiskUpdate />, breadcrumb: 'Update Risk'},
@@ -230,6 +230,15 @@ const ROUTES = [
                             {path: 'control-effectiveness', element: <ControlEffectiveness />, breadcrumb: 'Control Effectiveness'},
                             {path: 'risk-responses', element: <RiskResponses />, breadcrumb: 'Risk Responses'},
                             {path: 'risk-indicators', element: <ManageRiskIndicators />, breadcrumb: 'Risk Indicators'},
+                        ]
+                    },
+                    {
+                        path: 'process-management',
+                        element: <ProcessManagementLayout />,
+                        breadcrumb: 'Process Management',
+                        children: [
+                            {index: true, element: <SettingsProcessManagementIndex />, breadcrumb: 'Process Management'},
+                            {path: 'process-boundary', element: <ProcessBoundarySetup />, breadcrumb: 'Process Boundary'},
                         ]
                     },
                     {path: 'not-implemented', element: <div className='h-full w-full grid place-items-center'>This page is not implemented yet</div>, breadcrumb: 'Not Implemented'}

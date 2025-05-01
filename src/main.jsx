@@ -11,7 +11,7 @@ import { BASE_API_URL } from './utils/consts.js'
 import auth from './utils/auth.js'
 import { Provider } from 'react-redux'
 import { store } from './config/store.js'
-import { MessageProvider } from './contexts/MessageContext'
+import { MessageProvider } from './contexts/MessageContext.jsx'
 import { AuthProvider } from './contexts/AuthContext'
 
 // LOCKR GLOBAL CONFIG

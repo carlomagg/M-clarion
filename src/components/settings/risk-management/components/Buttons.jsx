@@ -20,8 +20,13 @@ export function InfoButton({info}) {
 
 export function CreateNewItemButton({text, onClick, classes = ''}) {
     return (
-        <button type="button" onClick={onClick} className={`border border-[#CCC] py-2 px-4 rounded-lg font-medium text-sm text-text-pink ${classes}`}>
-            {text}
+        <button 
+            type="button" 
+            onClick={onClick} 
+            className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#e0e0e0] rounded-[4px] hover:bg-gray-50 ${classes}`}
+        >
+            <span className="text-[#fd3db5] font-normal">+</span>
+            <span className="text-sm font-normal text-[#333333]">{text}</span>
         </button>
     );
 }

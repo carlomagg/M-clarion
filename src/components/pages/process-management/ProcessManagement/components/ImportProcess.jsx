@@ -11,7 +11,7 @@ import { useMessage } from "../../../../../contexts/MessageContext.jsx";
 import { InformationCircleIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 
-const ImportProcess = ({ setActiveTab }) => {
+const ImportProcess = () => {
   const navigate = useNavigate();
   const [importMethod, setImportMethod] = useState("file"); // "file" or "json"
   const [evidenceFile, setEvidenceFile] = useState(null);
@@ -25,14 +25,46 @@ const ImportProcess = ({ setActiveTab }) => {
   const { mutate: importProcesses, isPending } = useImportProcesses({
     onSuccess: (data) => {
       dispatchMessage('success', 'Processes imported successfully and added to catalog');
-      // Go to the review tab after successful import
-      setActiveTab("Review Imported Process");
+      // Navigate to process catalog instead of showing review tab
+      navigate("/process-management/log");
     },
     onError: (error) => {
       dispatchMessage('failed', error.response?.data?.message || 'Failed to import processes');
     }
   });
 
+  // Function to download the template
+  const downloadTemplate = () => {
+    try {
+      // Create the headers for the template (same as export)
+      const headers = ['Process ID', 'Title', 'Status', 'Type', 'Created Date', 'Version'];
+      
+      // Create a worksheet with headers
+      const ws = XLSX.utils.aoa_to_sheet([headers]);
+      
+      // Add some sample data rows
+      const sampleData = [
+        ['', 'Customer Onboarding Process', 'ACTIVE', 'Business', '', '1.0'],
+        ['', 'HR Recruitment Process', 'DRAFT', 'Administrative', '', '1.0']
+      ];
+      
+      // Append the sample data to the worksheet
+      XLSX.utils.sheet_add_aoa(ws, sampleData, { origin: 'A2' });
+      
+      // Create a new workbook and add the worksheet
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Process Template');
+      
+      // Generate the Excel file
+      XLSX.writeFile(wb, `process-import-template.xlsx`);
+      
+      dispatchMessage('success', 'Template downloaded successfully');
+    } catch (error) {
+      console.error('Template download error:', error);
+      dispatchMessage('failed', 'Failed to download template');
+    }
+  };
+  
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     setEvidenceFile(file);
@@ -171,7 +203,19 @@ const ImportProcess = ({ setActiveTab }) => {
         {/* File Upload Section */}
         {importMethod === "file" && (
           <div className="gap-4 mb-4">
-            <p>Select Excel file</p>
+            <p className="mb-2">Upload a XLS worksheet file with process details create from the standard template.</p>
+            <p className="mb-4">
+              <a 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  downloadTemplate();
+                }}
+                className="text-pink-500 hover:text-pink-700 font-medium underline"
+              >
+                Download template
+              </a>
+            </p>
             <div className="flex flex-col justify-center items-center border-2 border-dashed border-gray-300 p-6 w-full rounded-lg">
               <label className="font-medium mb-2">Process Data</label>
               <input

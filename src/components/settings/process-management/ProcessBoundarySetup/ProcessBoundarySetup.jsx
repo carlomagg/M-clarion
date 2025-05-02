@@ -175,13 +175,12 @@ function ProcessBoundarySetup() {
         <div className="flex flex-col gap-4 h-full bg-white p-4 rounded-xl">
             <div className='flex items-center mb-2'>
                 <BackButton />
-                <h3 className='font-semibold text-xl ml-3'>Process Boundary Setup</h3>
+                <h3 className='font-semibold text-xl ml-3'>Process Boundary Management</h3>
             </div>
 
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
-                    <h4 className="font-medium">Process Boundaries</h4>
-                    <InfoButton />
+                    {/* Subtitle and info icon removed */}
                 </div>
                 <CreateNewItemButton text={'New Boundary'} onClick={() => openDialog('add')} />
             </div>

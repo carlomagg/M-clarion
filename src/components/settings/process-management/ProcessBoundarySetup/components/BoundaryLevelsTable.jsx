@@ -1,19 +1,10 @@
 import React from 'react';
 import { ColorChip } from "./Elements";
-import { ViewButton, EditButton, DeleteButton } from "../../../risk-management/components/Buttons";
+import ThreeDotsMenu from './ThreeDotsMenu';
 
 export default function BoundaryLevelsTable({ items = [], checkOverlap }) {
     // Ensure items is always an array
     const boundaries = Array.isArray(items) ? items : [];
-    
-    // Helper function to log button actions
-    const logAction = (action, boundary) => {
-        console.log(`${action} action for boundary:`, {
-            id: boundary.id,
-            description: boundary.description,
-            boundary
-        });
-    };
     
     return (
         <div className="overflow-x-auto">
@@ -26,7 +17,7 @@ export default function BoundaryLevelsTable({ items = [], checkOverlap }) {
                         <th className="py-3 px-5 font-medium">Upper Bound</th>
                         <th className="py-3 px-5 font-medium">Color</th>
                         <th className="py-3 px-5 font-medium">Color Description</th>
-                        <th className="py-3 px-5 font-medium">Actions</th>
+                        <th className="py-3 px-5 font-medium"></th> {/* Empty header for actions */}
                     </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-gray-200">
@@ -44,34 +35,27 @@ export default function BoundaryLevelsTable({ items = [], checkOverlap }) {
                                     <td className="py-3 px-5">{boundary.higher_bound}</td>
                                     <td className="py-3 px-5 flex gap-2 items-center"><ColorChip color={boundary.colour} /> {boundary.colour}</td>
                                     <td className="py-3 px-5">{boundary.colour_description || '-'}</td>
-                                    <td className="py-3 px-5 flex gap-2">
-                                        <ViewButton 
-                                            context={{ 
+                                    <td className="py-3 px-5 text-right relative">
+                                        <ThreeDotsMenu 
+                                            viewContext={{ 
                                                 mode: 'view', 
                                                 id: boundary.id,
                                                 boundaryData: boundary,
                                                 modalType: 'processBoundary' 
-                                            }} 
-                                            onClick={() => logAction('View', boundary)}
-                                        />
-                                        <EditButton 
-                                            context={{ 
+                                            }}
+                                            editContext={{ 
                                                 mode: 'edit', 
                                                 id: boundary.id,
                                                 boundaryData: boundary,
                                                 checkOverlap, 
                                                 modalType: 'processBoundary' 
-                                            }} 
-                                            onClick={() => logAction('Edit', boundary)}
-                                        />
-                                        <DeleteButton 
-                                            context={{ 
+                                            }}
+                                            deleteContext={{ 
                                                 mode: 'delete', 
                                                 id: boundary.id, 
                                                 title: boundary.description, 
                                                 modalType: 'processBoundary' 
-                                            }} 
-                                            onClick={() => logAction('Delete', boundary)}
+                                            }}
                                         />
                                     </td>
                                 </tr>

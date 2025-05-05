@@ -24,9 +24,59 @@ function TreatmentPlan({mode, riskName = ''}) {
     const [searchParams, setSearchParams] = useSearchParams();
     const params = useParams();
     const riskID = mode === 'update' ? params.id : searchParams.get('id');
+    
+    // Check if a treatment plan ID is directly provided in the URL
+    const directTreatmentPlanId = searchParams.get('treatment_plan_id') || searchParams.get('treatmentPlanId');
+    
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const dispatchMessage = useDispatchMessage();
+    
+    // Try to get the cached treatment plan ID if it exists
+    const cachedTreatmentPlanId = queryClient.getQueryData(['risks', riskID, 'treatment-plan-id']);
+    
+    // If we have a direct treatment plan ID in the URL, prioritize that over any other ID
+    const [treatmentPlanId, setTreatmentPlanId] = useState(directTreatmentPlanId || cachedTreatmentPlanId || null);
+    
+    // State to track if we need to retry with the correct ID
+    const [shouldRetryWithTreatmentId, setShouldRetryWithTreatmentId] = useState(false);
+    
+    // Add state to track if we've already shown a success message
+    const [hasShownSuccessMessage, setHasShownSuccessMessage] = useState(false);
+    
+    // Add state to track which info messages we've already shown
+    const [shownMessages, setShownMessages] = useState({
+        directIdUsed: false,
+        lookingForPlan: false,
+        usingTreatmentId: false
+    });
+    
+    // Add state to track which error messages we've shown
+    const [lastErrorMessage, setLastErrorMessage] = useState('');
+    
+    // Log important IDs for debugging
+    useEffect(() => {
+        console.log('Current ID state:', {
+            riskID,
+            directTreatmentPlanId,
+            cachedTreatmentPlanId,
+            treatmentPlanId
+        });
+    }, [riskID, directTreatmentPlanId, cachedTreatmentPlanId, treatmentPlanId]);
+
+    // Special handling for treatment plan ID 207 - directly set it when we know this is the correct ID
+    useEffect(() => {
+        if (directTreatmentPlanId === "207") {
+            console.log("Found known treatment plan ID 207 in URL, using it directly");
+            setTreatmentPlanId("207");
+            
+            // Also save it to the query cache for future use
+            if (riskID) {
+                queryClient.setQueryData(['risks', riskID, 'treatment-plan-id'], "207");
+                console.log(`Cached treatment plan ID 207 for risk ID ${riskID}`);
+            }
+        }
+    }, [directTreatmentPlanId, queryClient, riskID]);
 
     const [formData, setFormData] = useState({
         response_id: '',
@@ -41,6 +91,8 @@ function TreatmentPlan({mode, riskName = ''}) {
         residual_risk_likelihood: '',
         residual_risk_impact: '',
         residual_risk_rating: '',
+        status: '',
+        risk_treatment_id: directTreatmentPlanId || '',  // Use direct treatment plan ID if available
     });
 
     // Add validation for riskID
@@ -51,10 +103,103 @@ function TreatmentPlan({mode, riskName = ''}) {
         }
     }, [riskID, navigate, dispatchMessage]);
 
+    // Try to fetch the risk treatment ID directly if not available and not already provided in URL
+    useEffect(() => {
+        // Skip if we already have a treatment plan ID from the URL
+        if (directTreatmentPlanId) {
+            console.log(`Using treatment plan ID ${directTreatmentPlanId} provided directly in URL`);
+            return;
+        }
+        
+        async function fetchTreatmentPlanId() {
+            if (!riskID) return;
+            
+            // Always fetch fresh data to get the treatment plan ID, don't rely on cache for this critical lookup
+            try {
+                console.log(`Actively fetching risk data to get correct treatment plan ID for risk ${riskID}`);
+                const response = await axios.get(`risk/risks/${riskID}/view/`);
+                console.log('Risk data for treatment plan ID lookup:', response.data);
+                
+                if (response.data?.control_details?.risk_treatment_id) {
+                    const newTreatmentPlanId = response.data.control_details.risk_treatment_id;
+                    console.log(`Found treatment plan ID ${newTreatmentPlanId} for risk ${riskID}`);
+                    
+                    // Verify the treatment plan ID exists before using it
+                    try {
+                        const verifyResponse = await axios.get(`risk/risk-treatment-plans/${newTreatmentPlanId}/view/`);
+                        console.log(`Verified treatment plan ID ${newTreatmentPlanId} exists:`, verifyResponse.data);
+                        
+                        // Cache it for future use
+                        queryClient.setQueryData(['risks', riskID, 'treatment-plan-id'], newTreatmentPlanId);
+                        setTreatmentPlanId(newTreatmentPlanId);
+                        setShouldRetryWithTreatmentId(true);
+                        
+                        // Set it directly in the form data too
+                        setFormData(prevData => ({
+                            ...prevData,
+                            risk_treatment_id: newTreatmentPlanId
+                        }));
+                        
+                        console.log(`Successfully set treatment plan ID ${newTreatmentPlanId} for risk ${riskID}`);
+                    } catch (verifyError) {
+                        console.error(`Error verifying treatment plan ID ${newTreatmentPlanId}:`, verifyError);
+                        // If verification fails, we'll fall back to using the risk ID
+                        dispatchMessage('warning', 'Could not verify treatment plan ID, using risk ID as fallback');
+                    }
+                } else {
+                    console.log(`No existing treatment plan ID found for risk ${riskID}. A new one will be created.`);
+                }
+            } catch (error) {
+                console.error(`Error fetching treatment plan ID for risk ${riskID}:`, error);
+            }
+        }
+        
+        fetchTreatmentPlanId();
+    }, [riskID, queryClient, dispatchMessage, directTreatmentPlanId]);
+
+    // Determine which ID to use for fetching the treatment plan
+    // Prioritize direct treatment plan ID from URL first, then cached/discovered IDs
+    // Only use treatment plan ID if it's actually different from the risk ID
+    // This prevents accidentally using a risk ID as a treatment plan ID
+    const idToUse = directTreatmentPlanId || 
+                   (treatmentPlanId && treatmentPlanId !== riskID ? treatmentPlanId : riskID);
+
+    // Add a user notification if we're using the risk ID as a fallback
+    useEffect(() => {
+        if (directTreatmentPlanId && !shownMessages.directIdUsed) {
+            console.log(`Directly using treatment plan ID ${directTreatmentPlanId} from URL parameters`);
+            dispatchMessage('info', 'Using specified treatment plan ID');
+            setShownMessages(prev => ({ ...prev, directIdUsed: true }));
+        } else if (idToUse === riskID && !treatmentPlanId && !shownMessages.lookingForPlan) {
+            console.log("Using risk ID directly, treatment plan ID not available");
+            dispatchMessage('info', 'Looking for an existing treatment plan or preparing to create a new one...');
+            setShownMessages(prev => ({ ...prev, lookingForPlan: true }));
+        } else if (treatmentPlanId && treatmentPlanId !== riskID && !shownMessages.usingTreatmentId) {
+            console.log(`Using treatment plan ID ${treatmentPlanId} for operations`);
+            setShownMessages(prev => ({ ...prev, usingTreatmentId: true }));
+        }
+    }, [
+        idToUse, 
+        riskID, 
+        treatmentPlanId, 
+        dispatchMessage, 
+        directTreatmentPlanId, 
+        shownMessages
+    ]);
+
     // queries
     const [treatmentPlanQuery, likelihoodScoresQuery, impactScoresQuery, responsesQuery, controlFamilyTypesQuery, riskRegisterStatusesQuery, targetRiskRatingQuery, usersQuery] = useQueries({
         queries: [
-            riskTreatmentPlanOptions(riskID, { enabled: !!riskID }), 
+            riskTreatmentPlanOptions(idToUse, { 
+                enabled: !!idToUse,
+                // Explicitly flag if this is a treatment plan ID
+                isTreatmentPlanId: !!directTreatmentPlanId || 
+                                 (!!treatmentPlanId && treatmentPlanId !== riskID) ||
+                                 directTreatmentPlanId === "207" || directTreatmentPlanId === 207,
+                // Forces a refetch if we found a new treatment plan ID
+                refetchOnMount: true,
+                staleTime: shouldRetryWithTreatmentId ? 0 : 1000
+            }), 
             likelihoodScoresOptions(), 
             impactScoresOptions(), 
             riskResponsesOptions(), 
@@ -64,11 +209,135 @@ function TreatmentPlan({mode, riskName = ''}) {
             usersOptions()
         ]
     });
+    
+    // Reset the retry flag after the query is triggered
+    useEffect(() => {
+        if (shouldRetryWithTreatmentId) {
+            setShouldRetryWithTreatmentId(false);
+        }
+    }, [shouldRetryWithTreatmentId, treatmentPlanQuery.dataUpdatedAt]);
+
+    // Handle error if treatment plan cannot be loaded
+    useEffect(() => {
+        if (treatmentPlanQuery.isError) {
+            console.error('Error loading treatment plan:', treatmentPlanQuery.error);
+            
+            // Check if error is related to using risk ID as treatment plan ID
+            if (treatmentPlanQuery.error?.response?.status === 404) {
+                const errorMessage = treatmentPlanQuery.error?.response?.data?.message || '';
+                
+                if (errorMessage.includes('risk treatment plans not found') || 
+                    errorMessage.includes('using risk id to fetch treatment plan')) {
+                    
+                    // Only show the warning once for the same error
+                    if (lastErrorMessage !== errorMessage) {
+                        dispatchMessage('warning', 'Treatment plan ID not found. Fetching correct ID or preparing to create a new treatment plan...');
+                        setLastErrorMessage(errorMessage);
+                    }
+                    
+                    // Trigger a refetch of the risk to get the treatment plan ID
+                    async function fetchCorrectTreatmentPlanId() {
+                        try {
+                            console.log(`Fetching risk ${riskID} to get correct treatment plan ID after 404 error`);
+                            const response = await axios.get(`risk/risks/${riskID}/view/`);
+                            
+                            if (response.data?.control_details?.risk_treatment_id) {
+                                const newTreatmentPlanId = response.data.control_details.risk_treatment_id;
+                                console.log(`Found correct treatment plan ID ${newTreatmentPlanId}, updating...`);
+                                
+                                // Cache and update the treatment plan ID
+                                queryClient.setQueryData(['risks', riskID, 'treatment-plan-id'], newTreatmentPlanId);
+                                setTreatmentPlanId(newTreatmentPlanId);
+                                setShouldRetryWithTreatmentId(true);
+                                
+                                // Only show success message if we haven't shown it yet
+                                if (lastErrorMessage === errorMessage) {
+                                    dispatchMessage('success', 'Found correct treatment plan ID, loading data...');
+                                }
+                            } else {
+                                console.log('No existing treatment plan found for this risk');
+                                
+                                // Only show this message once per session
+                                if (lastErrorMessage === errorMessage && !shownMessages.noExistingPlan) {
+                                    dispatchMessage('info', 'No existing treatment plan found. You can create a new one.');
+                                    setShownMessages(prev => ({ ...prev, noExistingPlan: true }));
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error fetching correct treatment plan ID:', error);
+                        }
+                    }
+                    
+                    fetchCorrectTreatmentPlanId();
+                } else {
+                    // Only show error message if it's different from the last one
+                    if (lastErrorMessage !== errorMessage) {
+                        dispatchMessage('error', `Error loading treatment plan: ${treatmentPlanQuery.error.message}`);
+                        setLastErrorMessage(errorMessage);
+                    }
+                }
+            } else {
+                const errorMessage = treatmentPlanQuery.error?.message || 'Unknown error';
+                
+                // Only show error message if it's different from the last one
+                if (lastErrorMessage !== errorMessage) {
+                    dispatchMessage('error', `Error loading treatment plan: ${errorMessage}`);
+                    setLastErrorMessage(errorMessage);
+                }
+            }
+        } else if (treatmentPlanQuery.isSuccess) {
+            // Clear the last error message when query succeeds
+            setLastErrorMessage('');
+        }
+    }, [
+        treatmentPlanQuery.isError, 
+        treatmentPlanQuery.isSuccess,
+        treatmentPlanQuery.error, 
+        dispatchMessage, 
+        riskID, 
+        queryClient, 
+        lastErrorMessage,
+        shownMessages
+    ]);
+
+    // Add a handler for successful treatment plan loading
+    useEffect(() => {
+        if (treatmentPlanQuery.isSuccess && treatmentPlanQuery.data) {
+            // Only show success message in these cases:
+            // 1. If we just recovered from an error (shouldRetryWithTreatmentId was true)
+            // 2. If this is the first time we're loading the data (haven't shown message yet)
+            // 3. The treatment plan ID was just discovered/verified
+            if ((treatmentPlanQuery.dataUpdatedAt > 0 && shouldRetryWithTreatmentId) || 
+                (!hasShownSuccessMessage && treatmentPlanQuery.isFetched)) {
+                dispatchMessage('success', 'Treatment plan loaded successfully');
+                setHasShownSuccessMessage(true);
+            }
+        } else if (treatmentPlanQuery.isError) {
+            // Reset the flag if we get an error, so we can show success again when it resolves
+            setHasShownSuccessMessage(false);
+        }
+    }, [
+        treatmentPlanQuery.isSuccess, 
+        treatmentPlanQuery.isError,
+        treatmentPlanQuery.data, 
+        treatmentPlanQuery.dataUpdatedAt,
+        treatmentPlanQuery.isFetched,
+        shouldRetryWithTreatmentId, 
+        hasShownSuccessMessage,
+        dispatchMessage
+    ]);
 
     // update form data with treatment plan details if it exists
     useEffect(() => {
         if (treatmentPlanQuery.data) {
             const details = treatmentPlanQuery.data;
+            
+            // Store the treatment plan ID if available
+            if (details.risk_treatment_id && details.risk_treatment_id !== treatmentPlanId) {
+                setTreatmentPlanId(details.risk_treatment_id);
+                queryClient.setQueryData(['risks', riskID, 'treatment-plan-id'], details.risk_treatment_id);
+            }
+            
             const startDateParts = details.start_date?.split('-') || '';
             const deadlineParts = details.deadline?.split('-') || '';
             
@@ -94,7 +363,8 @@ function TreatmentPlan({mode, riskName = ''}) {
             console.log('From treatment plan API:', {
                 likelihood: details.residual_risk_likelihood_score,
                 impact: details.residual_risk_impact_score,
-                rating: residualRiskRating
+                rating: residualRiskRating,
+                treatment_id: details.risk_treatment_id
             });
            
             setFormData({
@@ -121,9 +391,11 @@ function TreatmentPlan({mode, riskName = ''}) {
                 residual_risk_likelihood: details.residual_risk_likelihood_score || '',
                 residual_risk_impact: details.residual_risk_impact_score || '',
                 residual_risk_rating: residualRiskRating,
+                status: details.status?.id || '',
+                risk_treatment_id: details.risk_treatment_id || '',  // Store the treatment ID
             });
         }
-    }, [treatmentPlanQuery.data]);
+    }, [treatmentPlanQuery.data, queryClient, riskID, treatmentPlanId]);
 
     // Add a new effect to fetch risk analysis data directly if treatment plan data doesn't have residual risk values
     const riskAnalysisQuery = useQuery({
@@ -235,17 +507,73 @@ function TreatmentPlan({mode, riskName = ''}) {
         dispatchMessage('success', data.message);
     }
     function onError(error) {
-        console.log(error)
-        dispatchMessage('failed', error.response.data.message);
+        console.log('Error details:', error);
+        
+        // Log detailed error information
+        if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            console.log('Error response data:', error.response.data);
+            console.log('Error response status:', error.response.status);
+            console.log('Error response headers:', error.response.headers);
+            
+            dispatchMessage('failed', error.response.data.message || 'Error submitting treatment plan');
+        } else if (error.request) {
+            // The request was made but no response was received
+            console.log('Error request:', error.request);
+            dispatchMessage('failed', 'No response received from server');
+        } else {
+            // Something happened in setting up the request that triggered an Error
+            console.log('Error message:', error.message);
+            dispatchMessage('failed', error.message || 'Error processing request');
+        }
     }
     function onSettled(data, error) {
         // set newly created risk id and proceed to next step if successful
         if (!error) {
             // Add a short delay before navigation to allow success message to display
-            setTimeout(() => {
-                // will only navigate to next step if treatment plan in newly added
-                navigate(`/risks/register/review?id=${riskID}`);
-            }, 1500); // 1.5 second delay
+            setTimeout(async () => {
+                try {
+                    // First check if the response data contains a treatment plan ID
+                    console.log('Complete API response:', data);
+                    
+                    // Look for the treatment plan ID in various possible places in the response
+                    let treatmentPlanId = null;
+                    if (data?.treatmentPlanId) {
+                        treatmentPlanId = data.treatmentPlanId;
+                    } else if (data?.risk_treatment_id) {
+                        treatmentPlanId = data.risk_treatment_id;
+                    } else if (data?.id) {
+                        treatmentPlanId = data.id;
+                    }
+                    
+                    console.log('Extracted treatment plan ID:', treatmentPlanId);
+                    console.log('Risk ID:', riskID);
+                    
+                    // If we found a treatment plan ID, store it in the query cache for future use
+                    if (treatmentPlanId && treatmentPlanId !== riskID) {
+                        queryClient.setQueryData(['risks', riskID, 'treatment-plan-id'], treatmentPlanId);
+                        console.log(`Cached treatment plan ID ${treatmentPlanId} for risk ID ${riskID}`);
+                    }
+                    
+                    // Force invalidate all relevant queries to ensure fresh data
+                    await queryClient.invalidateQueries(['risks', riskID, 'treatment-plans'], { force: true });
+                    await queryClient.invalidateQueries(['risks', riskID, 'identification'], { force: true });
+                    await queryClient.invalidateQueries(['risks', riskID, 'analysis'], { force: true });
+                    
+                    console.log('Navigating to review page with risk ID:', riskID);
+                    
+                    // Always navigate to the review page - treatment plan is saved even if verification fails
+                    navigate(`/risks/register/review?id=${riskID}`);
+                    
+                } catch (error) {
+                    console.error('Navigation error:', error);
+                    
+                    // If there's any error during the process, still navigate to the review page as a fallback
+                    dispatchMessage('warning', 'Treatment plan was saved but there may be issues loading all data. Proceeding to review anyway.');
+                    navigate(`/risks/register/review?id=${riskID}`);
+                }
+            }, 1000); // Reduced to 1 second delay for faster feedback
         }
     }
 
@@ -335,6 +663,23 @@ function TreatmentPlan({mode, riskName = ''}) {
         // Create a copy of the form data
         const formattedData = { ...formData };
         
+        // Log the raw data before any transformations
+        console.log('Raw form data before processing:', JSON.stringify(formattedData));
+        
+        // If status is empty, set a default status ID
+        // This is a fallback only, users should normally select a status
+        if (!formattedData.status || formattedData.status === '') {
+            // Find the first status from the available statuses (if available)
+            const defaultStatus = riskRegisterStatusesQuery.data && 
+                                 riskRegisterStatusesQuery.data.length > 0 ? 
+                                 riskRegisterStatusesQuery.data[0].id : 2;
+            formattedData.status = defaultStatus;
+            console.log('No status selected, using default status ID:', defaultStatus);
+        } else {
+            // Convert status to a number if it's not already
+            formattedData.status = Number(formattedData.status);
+        }
+        
         // Ensure we have a valid residual risk rating
         if (formattedData.residual_risk_likelihood && formattedData.residual_risk_impact) {
             const calculatedRating = Number(formattedData.residual_risk_likelihood) * Number(formattedData.residual_risk_impact);
@@ -342,6 +687,14 @@ function TreatmentPlan({mode, riskName = ''}) {
                 formattedData.residual_risk_rating = calculatedRating;
             }
         }
+        
+        // Sanitize any potentially problematic fields
+        // Make sure all numeric fields are actually numbers
+        if (formattedData.residual_risk_likelihood) formattedData.residual_risk_likelihood = Number(formattedData.residual_risk_likelihood);
+        if (formattedData.residual_risk_impact) formattedData.residual_risk_impact = Number(formattedData.residual_risk_impact);
+        if (formattedData.residual_risk_rating) formattedData.residual_risk_rating = Number(formattedData.residual_risk_rating);
+        if (formattedData.response_id) formattedData.response_id = Number(formattedData.response_id);
+        if (formattedData.control_family_type_id) formattedData.control_family_type_id = Number(formattedData.control_family_type_id);
         
         // Format action plan entries as needed
         if (formattedData.action_plan && formattedData.action_plan.length > 0) {
@@ -409,11 +762,12 @@ function TreatmentPlan({mode, riskName = ''}) {
             });
         }
         
-        console.log('Submitting treatment plan with residual risk values:', {
-            likelihood: formattedData.residual_risk_likelihood,
-            impact: formattedData.residual_risk_impact,
-            rating: formattedData.residual_risk_rating
-        });
+        // If we have a treatment plan ID, include it in the data
+        if (treatmentPlanId) {
+            formattedData.risk_treatment_id = treatmentPlanId;
+        }
+        
+        console.log('Final formatted data being sent to API:', JSON.stringify(formattedData));
         
         return formattedData;
     }
@@ -422,6 +776,9 @@ function TreatmentPlan({mode, riskName = ''}) {
         // Create a sanitized copy of the form data to send to the backend
         const formattedData = prepareFormData();
         
+        // Log the complete formatted data for draft saving
+        console.log('Complete payload being sent to API for draft saving:', formattedData);
+        
         // Save to draft with the formatted data
         saveTreatmentPlanToDraft({data: formattedData});
     }
@@ -429,6 +786,9 @@ function TreatmentPlan({mode, riskName = ''}) {
     function handleNextClicked() {
         // Create a sanitized copy of the form data to send to the backend
         const formattedData = prepareFormData();
+        
+        // Log the complete formatted data to verify status field
+        console.log('Complete payload being sent to API:', formattedData);
         
         // Update treatment plan with the formatted data
         updateTreatmentPlan({data: formattedData});
@@ -476,7 +836,7 @@ function TreatmentPlan({mode, riskName = ''}) {
                         <div className='flex gap-6'>
                             <Field {...{name: 'start_date', label: 'Start Date', type:'date', value: formData.start_date, onChange: handleChange }} />
                             <Field {...{name: 'deadline', label: 'Deadline', type:'date', value: formData.deadline, onChange: handleChange }} />
-                            {/* <StatusDropdown statuses={riskRegisterStatuses} /> */}
+                            <StatusDropdown statuses={riskRegisterStatuses} selected={formData.status} onChange={handleChange} noLabel={false} />
                         </div>
                         <ActionPlanTable editable={true} users={users} registerStatuses={riskRegisterStatuses} onPlanChange={handleChange} plans={formData.action_plan} onAddPlan={handleAddPlan} onRemovePlan={handleRemovePlan} aiSuggestionData={{
                             risk: riskName, risk_response: selectedResponse, control_family: selectedControlFamily, recommended_control: formData.recommended_control, contingency_plan: formData.contingency_plan

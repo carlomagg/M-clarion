@@ -36,8 +36,19 @@ export function Section({heading, children, button = null}) {
 }
 
 export function StatusChip({text, color}) {
+    // Provide a default for undefined/null text
+    const displayText = text || 'Unknown';
+    
+    // Use a default color if none provided
+    const displayColor = color || '#888888';
+    
     return (
-        <span style={{color, backgroundColor: `${color}33`}} className='inline-block rounded-full text-center px-6 py-1 text-sm font-medium'>{text}</span>
+        <span 
+            style={{color: displayColor, backgroundColor: `${displayColor}33`}} 
+            className='inline-block rounded-full text-center px-6 py-1 text-sm font-medium'
+        >
+            {displayText}
+        </span>
     );
 }
 

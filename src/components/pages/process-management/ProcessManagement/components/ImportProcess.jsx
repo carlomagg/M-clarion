@@ -24,8 +24,21 @@ const ImportProcess = () => {
   // Set up import processes mutation
   const { mutate: importProcesses, isPending } = useImportProcesses({
     onSuccess: (data) => {
-      dispatchMessage('success', 'Processes imported successfully and added to catalog');
-      // Navigate to process catalog instead of showing review tab
+      // Handling the response with status, created_processes, and errors
+      if (data.status === "completed") {
+        if (data.created_processes && data.created_processes.length > 0) {
+          dispatchMessage('success', `Successfully imported ${data.created_processes.length} processes to catalog`);
+        } else {
+          dispatchMessage('info', 'Import completed but no processes were created');
+        }
+      } else {
+        if (data.errors && data.errors.length > 0) {
+          dispatchMessage('failed', `Import failed with ${data.errors.length} errors`);
+        } else {
+          dispatchMessage('failed', 'Import failed');
+        }
+      }
+      // Navigate to process catalog
       navigate("/process-management/log");
     },
     onError: (error) => {
@@ -36,24 +49,49 @@ const ImportProcess = () => {
   // Function to download the template
   const downloadTemplate = () => {
     try {
-      // Create the headers for the template (same as export)
-      const headers = ['Process ID', 'Title', 'Status', 'Type', 'Created Date', 'Version'];
+      // Create the headers for the template matching the expected API format
+      const headers = ['Name', 'Description'];
       
       // Create a worksheet with headers
       const ws = XLSX.utils.aoa_to_sheet([headers]);
       
-      // Add some sample data rows
+      // Add some sample data rows that match the processes array format
       const sampleData = [
-        ['', 'Customer Onboarding Process', 'ACTIVE', 'Business', '', '1.0'],
-        ['', 'HR Recruitment Process', 'DRAFT', 'Administrative', '', '1.0']
+        ['HR Onboarding Process 1', 'Covers employee onboarding from offer to first day.'],
+        ['Procurement Process 1', 'Handles procurement requests and approvals.'],
+        ['IT Incident Response 1', 'Tracks and manages IT-related issues and outages.']
       ];
       
       // Append the sample data to the worksheet
       XLSX.utils.sheet_add_aoa(ws, sampleData, { origin: 'A2' });
       
-      // Create a new workbook and add the worksheet
+      // Add notes about the template format
+      const notes = XLSX.utils.aoa_to_sheet([
+        ['Import Template Notes:'],
+        [''],
+        ['This template is designed to match the expected payload structure:'],
+        [''],
+        ['{ '],
+        ['  "processes": ['],
+        ['    {'],
+        ['      "name": "HR Onboarding Process 1",'],
+        ['      "description": "Covers employee onboarding from offer to first day."'],
+        ['    },'],
+        ['    {'],
+        ['      "name": "Procurement Process 1",'],
+        ['      "description": "Handles procurement requests and approvals."'],
+        ['    },'],
+        ['    ...'],
+        ['  ]'],
+        ['}'],
+        [''],
+        ['Fill in Name and Description for each process you want to import.']
+      ]);
+      
+      // Create a new workbook and add the worksheets
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Process Template');
+      XLSX.utils.book_append_sheet(wb, notes, 'Import Notes');
       
       // Generate the Excel file
       XLSX.writeFile(wb, `process-import-template.xlsx`);
@@ -79,12 +117,20 @@ const ImportProcess = () => {
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
-          setTableData(jsonData);
           
-          // Map the data from Excel to the expected API format
+          // Process the Excel data to match the required payload format
+          // Map the columns correctly based on the new template format
+          const processesForDisplay = jsonData.map(row => ({
+            name: row['Name'] || row.name || '',
+            description: row['Description'] || row.description || ''
+          }));
+          
+          setTableData(processesForDisplay);
+          
+          // Format the data to match the structure expected by the API
           const processes = jsonData.map(row => ({
-            name: row.name || row.Name || row.title || row.Title || '',
-            description: row.description || row.Description || '',
+            name: row['Name'] || row.name || '',
+            description: row['Description'] || row.description || ''
           }));
           
           setProcessesData({ processes });
@@ -102,12 +148,31 @@ const ImportProcess = () => {
     setJsonInput(e.target.value);
     try {
       const parsed = JSON.parse(e.target.value);
-      setProcessesData(parsed);
       
-      // If the parsed JSON has the expected format, set the table data for preview
+      // Handle different JSON structure options
+      
+      // If the JSON has the processes array format (the correct format)
       if (parsed.processes && Array.isArray(parsed.processes)) {
+        // Use the processes array directly
+        setProcessesData(parsed);
         setTableData(parsed.processes);
         setIsPreviewVisible(true);
+      }
+      // Handle legacy format with created_processes (for backward compatibility)
+      else if (parsed.created_processes && Array.isArray(parsed.created_processes)) {
+        // Transform to the expected format with name and description
+        const processes = parsed.created_processes.map(proc => ({
+          name: proc.process_title || '',
+          description: ''
+        }));
+        
+        setProcessesData({ processes });
+        setTableData(processes);
+        setIsPreviewVisible(true);
+      } 
+      // Invalid format
+      else {
+        setIsPreviewVisible(false);
       }
     } catch (error) {
       // Don't show an error while typing, just don't update the preview
@@ -129,8 +194,19 @@ const ImportProcess = () => {
       return;
     }
 
-    // Proceed with import
-    importProcesses({ data: processesData });
+    // Create the payload with the correct format that the API expects
+    const apiPayload = {
+      processes: processesData.processes.map(process => ({
+        name: process.name || "",
+        description: process.description || ""
+      }))
+    };
+
+    // Log the exact data being sent for debugging
+    console.log('Sending process import request with data:', JSON.stringify(apiPayload, null, 2));
+
+    // Proceed with import using the correctly structured payload
+    importProcesses({ data: apiPayload });
   };
 
   const handleDiscard = () => {
@@ -233,7 +309,7 @@ const ImportProcess = () => {
               </label>
               <p className="text-gray-500 text-sm mt-2">Or drop file to upload</p>
               <p className="text-gray-500 text-xs mt-4">
-                Excel file should contain columns named 'name' and 'description'
+                Excel file should contain columns with 'Name' and 'Description' fields
               </p>
             </div>
             
@@ -265,10 +341,25 @@ const ImportProcess = () => {
                 value={jsonInput}
                 onChange={handleJsonInputChange}
                 className="w-full h-64 p-4 border border-gray-300 rounded-lg font-mono text-sm"
-                placeholder={`{\n  "processes": [\n    {\n      "name": "HR Onboarding Process",\n      "description": "Covers employee onboarding from offer to first day."\n    },\n    {\n      "name": "Procurement Process",\n      "description": "Handles procurement requests and approvals."\n    }\n  ]\n}`}
+                placeholder={`{
+  "processes": [
+    {
+      "name": "HR Onboarding Process 1",
+      "description": "Covers employee onboarding from offer to first day."
+    },
+    {
+      "name": "Procurement Process 1",
+      "description": "Handles procurement requests and approvals."
+    },
+    {
+      "name": "IT Incident Response 1",
+      "description": "Tracks and manages IT-related issues and outages."
+    }
+  ]
+}`}
               />
               <p className="text-gray-500 text-xs mt-2">
-                JSON must follow the structure: {"{ processes: [{ name: '...', description: '...' }, ...] }"}
+                JSON must follow the exact structure shown above with <code>processes</code> array containing objects with <code>name</code> and <code>description</code> fields.
               </p>
             </div>
           </div>
@@ -289,10 +380,10 @@ const ImportProcess = () => {
                 {tableData.map((row, rowIndex) => (
                   <tr key={rowIndex} className="hover:bg-gray-100">
                     <td className="px-4 py-2 border border-gray-300">
-                      {row.name || row.Name || row.title || row.Title || ''}
+                      {row.name || ''}
                     </td>
                     <td className="px-4 py-2 border border-gray-300">
-                      {row.description || row.Description || ''}
+                      {row.description || ''}
                     </td>
                   </tr>
                 ))}

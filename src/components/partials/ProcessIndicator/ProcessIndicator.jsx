@@ -31,6 +31,13 @@ function ProcessIndicator() {
     // Extract message properties
     const { type, text } = latestMessage;
 
+    // Format the text properly - handle objects, arrays, etc.
+    const displayText = typeof text === 'string' 
+        ? text 
+        : typeof text === 'object' && text !== null
+            ? JSON.stringify(text)
+            : String(text);
+
     // Determine display type
     const displayType = 
         type === 'success' ? 'success' :
@@ -59,7 +66,7 @@ function ProcessIndicator() {
                     {displayType === 'error' && exclamationIcon}
                     {(displayType === 'loading' || displayType === 'processing') && <Loader2 className="animate-spin w-4 h-4" />}
                 </div>
-                <div className="flex-1 min-w-0 text-sm font-medium">{text}</div>
+                <div className="flex-1 min-w-0 text-sm font-medium">{displayText}</div>
                 <button 
                     onClick={() => {
                         setShow(false);

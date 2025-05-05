@@ -217,7 +217,7 @@ export default function ProcessBoundaryDialog({context, onRemoveModal}) {
             }
             
             console.log('Creating new process boundary with data:', data);
-            const response = await axios.post('/process/process-boundaries', data);
+            const response = await axios.post('/process/process-boundaries/', data);
             console.log('Create response:', response.data);
             return response.data;
         },

@@ -72,7 +72,7 @@ async function fetchProcessBoundary(boundaryQuery) {
 // Add a new process boundary
 async function addProcessBoundary({data}) {
     try {
-        const response = await axios.post(BASE_URL, data);
+        const response = await axios.post(`${BASE_URL}/`, data);
         return response.data;
     } catch (error) {
         console.error("Error adding process boundary:", error);

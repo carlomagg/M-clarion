@@ -15,6 +15,12 @@ export default function ApprovalContent({canApproveRisk = false, currentStatus, 
     const location = useLocation();
     const queryClient = useQueryClient();
     
+    // Log for debugging
+    console.log('ApprovalContent - currentStatus:', currentStatus);
+    
+    // Validate and set safe defaults if status data is missing
+    const safeCurrentStatus = currentStatus || { status: 'Unknown', id: '' };
+    
     // Check if we came from the approval queue with a request to refresh
     useEffect(() => {
         if (location.state?.forceRefresh && location.state?.fromApprovalQueue) {
@@ -121,9 +127,9 @@ export default function ApprovalContent({canApproveRisk = false, currentStatus, 
         <div className='flex flex-col gap-6'>
             {
                 showForm ?
-                <ApprovalForm onRemoveForm={() => setShowForm(false)} currentStatus={currentStatus} statuses={approvalStatuses} users={users} /> :
+                <ApprovalForm onRemoveForm={() => setShowForm(false)} currentStatus={safeCurrentStatus} statuses={approvalStatuses || []} users={users || []} /> :
                 <div className="flex gap-6">
-                    <p>Current Status: <StatusChip color={'#2F2F2F'} text={currentStatus?.status} /></p>
+                    <p>Current Status: <StatusChip color={'#2F2F2F'} text={safeCurrentStatus?.status || 'Unknown'} /></p>
                     {
                         canApproveRisk &&
                         <button type="button" onClick={() => setShowForm(true)} className="text-sm font-medium text-text-pink">
@@ -166,6 +172,11 @@ function ApprovalForm({onRemoveForm, currentStatus, statuses, users}) {
         status_id: currentStatus?.id || '',
         approval_note: '',
     });
+
+    // Log for debugging
+    console.log('ApprovalForm - currentStatus:', currentStatus);
+    console.log('ApprovalForm - formData:', formData);
+    console.log('ApprovalForm - available statuses:', statuses);
 
     useEffect(() => {
         if (formData.status_id == 2) setShowUsersDropdown(true);

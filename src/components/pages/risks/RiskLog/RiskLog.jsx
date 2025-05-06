@@ -78,7 +78,7 @@ function RiskLog({ approvalMode = false }) {
     };
 
     const actions = [
-        {text: 'Import', icon: importIcon, type: 'action', onClick: () => {}, permission: 'add_mulitple_users_file'},
+        {text: 'Import', icon: importIcon, type: 'link', link: '/risks/import', permission: 'add_mulitple_users_file'},
         {text: 'Export', icon: exportIcon, type: 'action', onClick: exportToCSV, permission: 'add_multiple_users_emails'},
     ];
 

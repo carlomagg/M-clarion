@@ -1,0 +1,70 @@
+.custom-node {
+  padding: 12px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  min-width: 120px;
+  text-align: center;
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.custom-node:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.custom-node-input {
+  font-weight: 500;
+  font-size: 14px;
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  text-align: center;
+  color: #111827;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.btn-primary:hover {
+  background-color: #2563eb;
+}
+
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.btn-danger:hover {
+  background-color: #dc2626;
+}
+
+.btn-disabled {
+  background-color: #9ca3af !important;
+  cursor: not-allowed;
+}
+
+/* Process Node Styling */
+.process-node {
+  border: 2px solid #4A90E2;
+  background-color: #f0f7ff;
+}
+
+/* Task Node Styling */
+.task-node {
+  border: 2px solid #DD127A;
+  background-color: #fff0f7;
+}
+
+/* Checkbox Node Styling */
+.checkbox-node {
+  border: 2px solid #34D399;
+  background-color: #f0fff7;
+} 

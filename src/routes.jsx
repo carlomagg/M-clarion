@@ -64,6 +64,7 @@ import ProcessTaskDetails from './components/pages/process-management/ProcessTas
 import ProcessManagementLayout from './components/settings/process-management/Layout';
 import SettingsProcessManagementIndex from './components/settings/process-management/Index/Index';
 import ProcessBoundarySetup from './components/settings/process-management/ProcessBoundarySetup/ProcessBoundarySetup';
+import ImportTab from './components/pages/risks/components/ImportTab'
 
 // Create a wrapper component for admin-only routes
 function AdminRoute({ children }) {
@@ -147,6 +148,7 @@ const ROUTES = [
                     {path: 'register/:step?', element: <RiskRegister />, breadcrumb: 'Manage Risk'},
                     {path: 'approve', element: <RiskApprove />, breadcrumb: 'Risk Approval'},
                     {path: 'follow-up', element: <RiskFollowUp />, breadcrumb: 'Follow Up'},
+                    {path: 'import', element: <ImportTab />, breadcrumb: 'Import Risks'},
                     {path: ':id', element: <RiskReview />, breadcrumb: RiskDynamicBreadcrumb},
                     {path: ':id/update', element: <RiskUpdate />, breadcrumb: 'Update Risk'},
                 ]

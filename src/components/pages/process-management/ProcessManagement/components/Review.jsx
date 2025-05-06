@@ -4,6 +4,9 @@ import Diagram, { useSchema, createSchema } from "beautiful-react-diagrams";
 import { CKEField } from "../../../../partials/Elements/Elements";
 import { useQuery } from "@tanstack/react-query";
 import ProcessService from "../../../../../services/Process.service";
+import { ReactFlowProvider } from 'reactflow';
+import 'reactflow/dist/style.css';
+import EditableReactFlowChart from '../../../../partials/EditableReactFlowChart/EditableReactFlowChart';
 
 const CustomNode = ({ id, content, type }) => {
   // Handle the case where content might be undefined
@@ -253,64 +256,115 @@ const Review = ({ setActiveTab, processData, onEdit }) => {
 
   // Render the diagram with improved handling of node types
   const renderDiagram = (diagram) => {
-    if (!diagram) return null;
-    
-    // Debug
-    console.log("Rendering diagram in Review:", diagram);
+    if (!diagram) {
+      return (
+        <div className="p-5 bg-gray-50 text-gray-500 border border-gray-200 rounded flex items-center justify-center min-h-[300px]">
+          No flowchart available. Go to Flow Chart tab to create one.
+        </div>
+      );
+    }
     
     try {
-      // Process nodes and links for all node types
-      const processedSchema = {
-        ...diagram,
-        nodes: diagram.nodes.map(node => {
-          try {
-            // Handle the different node structures that might come from manual mode
-            if (node.content?.props) {
-              // Different ways the content might be structured
-              let content, type;
-              
-              // Try to get content and type from props
-              if (node.content.props.content && node.content.props.type) {
-                content = node.content.props.content;
-                type = node.content.props.type;
-              } 
-              // Enhanced custom nodes might have these nested
-              else if (node.content.props.children?.props) {
-                content = node.content.props.children.props.content;
-                type = node.content.props.children.props.type;
+      // Convert the diagram to React Flow format
+      const convertDiagramToReactFlow = (savedDiagram) => {
+        try {
+          // Make sure we have nodes array
+          const nodes = savedDiagram.nodes || [];
+          const links = savedDiagram.links || [];
+          
+          // Convert nodes to React Flow format
+          const rfNodes = nodes.map(node => {
+            // Extract position information, defaulting to coordinates if available or a random position
+            const position = node.position || node.coordinates || { 
+              x: Math.floor(Math.random() * 500) + 100, 
+              y: Math.floor(Math.random() * 300) + 100
+            };
+            
+            // Determine node type and label
+            let nodeType = 'process';
+            let label = 'Node';
+            
+            if (node.content) {
+              // Handle React element content from the old format
+              if (typeof node.content === 'object' && node.content.type) {
+                // It's a React element, try to extract data
+                try {
+                  if (node.content.props && node.content.props.content) {
+                    // Extract from CustomNode
+                    const props = node.content.props;
+                    if (props.type === 'process' && props.content.title) {
+                      label = props.content.title;
+                      nodeType = 'process';
+                    } else if (props.type === 'task' && props.content.taskName) {
+                      label = props.content.taskName;
+                      nodeType = 'task';
+                    } else if (props.type === 'checkbox' && props.content.label) {
+                      label = props.content.label;
+                      nodeType = 'checkbox';
+                    }
+                  }
+                } catch (err) {
+                  console.warn("Couldn't extract data from React element", err);
+                }
               }
-              // If we can't determine, use defaults
-              else {
-                content = node.content.props;
-                type = 'task';
+              // Handle direct content object
+              else if (typeof node.content === 'object') {
+                if (node.content.title) {
+                  label = node.content.title;
+                  nodeType = 'process';
+                } else if (node.content.taskName) {
+                  label = node.content.taskName;
+                  nodeType = 'task';
+                } else if (node.content.label) {
+                  label = node.content.label;
+                  nodeType = node.content.isChecked !== undefined ? 'checkbox' : 'process';
+                }
               }
-              
-              return {
-                ...node,
-                content: <CustomNode 
-                  id={node.id} 
-                  content={content}
-                  type={type} 
-                />
-              };
+            } else if (node.data && node.data.label) {
+              // Already in React Flow format
+              label = node.data.label;
+              nodeType = node.data.nodeType || 'process';
             }
             
-            // Fallback to just returning the node as is
-            return node;
-          } catch (error) {
-            console.error("Error processing node for review:", error, node);
-            // Return a basic node as fallback
             return {
-              ...node,
-              content: <div className="p-3 border border-gray-300 rounded bg-white">
-                {node.id || "Unknown Node"}
-              </div>
+              id: node.id,
+              type: 'editableNode',
+              data: {
+                label,
+                nodeType,
+              },
+              position
             };
-          }
-        })
+          });
+          
+          // Convert links to React Flow edges
+          const rfEdges = links.map(link => ({
+            id: `e-${link.input || link.source}-${link.output || link.target}`,
+            source: link.input || link.source,
+            target: link.output || link.target,
+            animated: true
+          }));
+          
+          return { nodes: rfNodes, edges: rfEdges };
+        } catch (error) {
+          console.error("Error converting diagram to React Flow format:", error);
+          return { nodes: [], edges: [] };
+        }
       };
       
-      return <Diagram schema={processedSchema} />;
+      const { nodes, edges } = convertDiagramToReactFlow(diagram);
+      
+      return (
+        <div className="h-full w-full border border-gray-200 rounded-lg overflow-hidden">
+          <ReactFlowProvider>
+            <EditableReactFlowChart
+              initialNodes={nodes}
+              initialEdges={edges}
+              readOnly={true}
+            />
+          </ReactFlowProvider>
+        </div>
+      );
     } catch (error) {
       console.error("Error rendering diagram:", error);
       return (
@@ -480,23 +534,26 @@ const Review = ({ setActiveTab, processData, onEdit }) => {
             Edit
           </button>
         </div>
-        <div>
-          <h3 className="font-semibold mb-4">{flowChart.name || 'Process Flow Chart'}</h3>
-          <div style={{ height: "22.5rem" }}>
+        <div className="flex flex-col gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h3 className="font-semibold text-lg text-gray-900">{flowChart.name || 'Process Flow Chart'}</h3>
+            {flowChart.note && (
+              <div className="mt-2 text-gray-700">
+                <p className="font-medium mb-1">Note:</p>
+                <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: flowChart.note }} />
+              </div>
+            )}
+          </div>
+          
+          <div style={{ height: "450px", width: "100%" }}>
             {flowChart.diagram ? (
               renderDiagram(flowChart.diagram)
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex items-center justify-center h-full text-gray-500 border border-gray-200 rounded-lg bg-gray-50">
                 No flow chart diagram available
               </div>
             )}
           </div>
-          {flowChart.note && (
-            <div className="mt-6">
-              <p className="font-semibold mb-2">Note</p>
-              <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: flowChart.note }} />
-            </div>
-          )}
         </div>
       </div>
 

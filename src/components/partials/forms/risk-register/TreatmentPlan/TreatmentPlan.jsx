@@ -705,19 +705,16 @@ function TreatmentPlan({mode, riskName = ''}) {
                 if (newPlan.assigned_to && typeof newPlan.assigned_to === 'object' && newPlan.assigned_to.id) {
                     // Only convert to a number if the id is not empty
                     if (newPlan.assigned_to.id && newPlan.assigned_to.id.toString().trim() !== '') {
-                        newPlan.user_id = Number(newPlan.assigned_to.id);
+                        newPlan.assigned_to = Number(newPlan.assigned_to.id);
                     } else {
-                        newPlan.user_id = null; // Set to null if id is empty
+                        newPlan.assigned_to = null; // Set to null if id is empty
                     }
-                    delete newPlan.assigned_to; // Remove the original assigned_to object
                 } else if (typeof newPlan.assigned_to === 'string' && newPlan.assigned_to.trim() !== '') {
-                    // If assigned_to is a non-empty string, convert to number for user_id
-                    newPlan.user_id = Number(newPlan.assigned_to);
-                    delete newPlan.assigned_to;
+                    // If assigned_to is a non-empty string, convert to number
+                    newPlan.assigned_to = Number(newPlan.assigned_to);
                 } else {
                     // Handle case where assigned_to is null, undefined, or empty
-                    newPlan.user_id = null;
-                    delete newPlan.assigned_to;
+                    newPlan.assigned_to = null;
                 }
                 
                 // Convert status_id to a number if it's not empty, otherwise set to null

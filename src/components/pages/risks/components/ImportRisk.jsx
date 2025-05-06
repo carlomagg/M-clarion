@@ -358,38 +358,58 @@ const ImportRisk = () => {
         
         {/* Preview Table */}
         {isPreviewVisible && tableData.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-lg font-medium mb-2">Preview</h3>
-            <div className="border border-gray-300 rounded-lg overflow-hidden">
-              <table className="w-full table-auto">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Name</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Description</th>
+          <div className="mt-6 overflow-x-auto">
+            <h3 className="text-md font-semibold mb-2">Preview: {tableData.length} Risks to Import</h3>
+            <table className="table-auto w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-200 text-left">
+                  <th className="px-4 py-2 border border-gray-300">Name</th>
+                  <th className="px-4 py-2 border border-gray-300">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableData.map((risk, idx) => (
+                  <tr key={idx} className="hover:bg-gray-100">
+                    <td className="px-4 py-2 border border-gray-300">{risk.name}</td>
+                    <td className="px-4 py-2 border border-gray-300">{risk.description}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {tableData.map((risk, idx) => (
-                    <tr key={idx} className="border-t border-gray-200">
-                      <td className="px-4 py-2 text-sm">{risk.name}</td>
-                      <td className="px-4 py-2 text-sm">{risk.description}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-sm text-gray-500">{tableData.length} risks ready to import</p>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
         
         {/* Import Button */}
-        <div className="flex justify-end gap-4 mt-4">
-          <FormCancelButton onClick={() => navigate("/risks")} label="Cancel" disabled={isPending} />
-          <FormProceedButton 
-            onClick={handleSubmit} 
-            label={isPending ? "Importing..." : "Import Risks"} 
-            disabled={isPending || tableData.length === 0} 
-          />
+        <div className="flex gap-3">
+          <a 
+            href="/risks" 
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+          >
+            Cancel
+          </a>
+          
+          <button 
+            className="px-4 py-2 bg-white border border-pink-500 text-pink-500 rounded hover:bg-pink-50"
+            onClick={() => {
+              setEvidenceFile(null);
+              setTableData([]);
+              setJsonInput('');
+              setRisksData({ risks: [] });
+              setIsPreviewVisible(false);
+            }}
+          >
+            Reset Form
+          </button>
+          
+          {isPreviewVisible && (
+            <button 
+              className={`px-4 py-2 rounded ${isPending ? 'bg-pink-300' : 'bg-pink-500 hover:bg-pink-600'} text-white`}
+              onClick={handleSubmit}
+              disabled={isPending || tableData.length === 0}
+            >
+              {isPending ? "Importing..." : "Import to Catalog"}
+            </button>
+          )}
         </div>
       </div>
     </>

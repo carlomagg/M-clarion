@@ -34,7 +34,7 @@ export default function CategoriesTable({items}) {
         const options = [
             {text: 'View', type: 'action', action: () => setShowModal({context: {mode: 'view', id: record.id}})},
             {text: 'Edit', type: 'action', action: () => setShowModal({context: {mode: 'edit', id: record.id}})},
-            {text: 'Delete', type: 'action', action: () => (() => deleteCategory({id: record.id}))},
+            {text: 'Delete', type: 'action', action: () => confirmAction(() => deleteCategory({id: record.id}))},
             {text: 'History', type: 'action', action: () => {}},
         ];
         return options;

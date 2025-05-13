@@ -1,3 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
+import { riskBoundariesOptions } from "../../../../../queries/risks/risk-boundaries";
+import { useState, useEffect } from "react";
+
 export default function RiskRating({riskRating}) {
     // Handle different types of riskRating input (number, string, or object with score property)
     let weight;
@@ -36,20 +40,75 @@ export default function RiskRating({riskRating}) {
         displayValue = riskRating.toString();
     }
     
-    // Determine color based on weight
-    // Include 0 in the lowest risk range (green)
-    let color;
-    if ([0, 1, 2, 3, 4, 5].includes(weight)) {
-        color = '#17A865'; // Green for lowest risk (including 0)
-    } else if ([6, 8, 9, 10].includes(weight)) {
-        color = '#7BD148'; // Light green for low risk
-    } else if ([12, 15].includes(weight)) {
-        color = '#FFC25B'; // Yellow for medium risk
-    } else if ([16, 20, 25].includes(weight)) {
-        color = '#FB3822'; // Red for high risk
-    } else {
-        color = '#D9D9D9'; // Gray for invalid/unknown
-    }
+    // Use the risk boundaries to determine the color
+    const { data: boundaries = [] } = useQuery(riskBoundariesOptions());
+    
+    // Get the boundary-based color
+    const [color, setColor] = useState('#D9D9D9'); // Default gray
+
+    useEffect(() => {
+        if (!boundaries || boundaries.length === 0) {
+            console.log('No boundaries available for risk rating', weight);
+            setColor('#D9D9D9');
+            return;
+        }
+        
+        if (weight === undefined || isNaN(weight)) {
+            console.log('Invalid weight for risk rating', weight);
+            setColor('#D9D9D9');
+            return;
+        }
+        
+        // Log all boundaries for debugging
+        console.log('Available boundaries:', JSON.stringify(boundaries));
+        
+        // Find the matching boundary
+        const boundary = boundaries.find(b => 
+            weight >= b.lower_bound && 
+            weight <= b.higher_bound
+        );
+        
+        if (boundary) {
+            console.log(`Found boundary for rating ${weight}:`, boundary);
+            // Check if color is present in the boundary object
+            if (boundary.colour) {
+                setColor(boundary.colour);
+                console.log(`Using boundary color: ${boundary.colour}`);
+            } else if (boundary.color) {
+                // Some implementations might use 'color' instead of 'colour'
+                setColor(boundary.color);
+                console.log(`Using boundary color: ${boundary.color}`);
+            } else {
+                console.log('Boundary found but no color property available:', boundary);
+                // Fallback to default color logic
+                if (weight <= 5) {
+                    setColor('#17A865'); // Low risk (green)
+                } else if (weight <= 10) {
+                    setColor('#7BD148'); // Medium-low risk (light green)
+                } else if (weight <= 15) {
+                    setColor('#FFC25B'); // Medium risk (yellow/amber)
+                } else if (weight <= 20) {
+                    setColor('#F68D2B'); // Medium-high risk (orange)
+                } else {
+                    setColor('#FB3822'); // High risk (red)
+                }
+            }
+        } else {
+            console.log(`No specific boundary found for rating ${weight}, using default color`);
+            // If no boundary is found, fallback to default colors based on risk level
+            if (weight <= 5) {
+                setColor('#17A865'); // Low risk (green)
+            } else if (weight <= 10) {
+                setColor('#7BD148'); // Medium-low risk (light green)
+            } else if (weight <= 15) {
+                setColor('#FFC25B'); // Medium risk (yellow/amber)
+            } else if (weight <= 20) {
+                setColor('#F68D2B'); // Medium-high risk (orange)
+            } else {
+                setColor('#FB3822'); // High risk (red)
+            }
+        }
+    }, [boundaries, weight]);
     
     // Enhanced debugging
     console.log('Rendering RiskRating:', {
@@ -57,24 +116,19 @@ export default function RiskRating({riskRating}) {
         numericRiskRating,
         weight,
         displayValue,
-        type: typeof riskRating,
-        isNumber: !isNaN(Number(riskRating)),
-        isString: typeof riskRating === 'string',
-        isEmpty: riskRating === '' || riskRating === null || riskRating === undefined,
         color,
-        colorLogic: {
-            isLowestRisk: [0, 1, 2, 3, 4, 5].includes(weight),
-            isLowRisk: [6, 8, 9, 10].includes(weight),
-            isMediumRisk: [12, 15].includes(weight),
-            isHighRisk: [16, 20, 25].includes(weight)
-        }
+        boundariesCount: boundaries?.length,
+        boundariesSample: boundaries?.slice(0, 3)
     });
     
     return (
         <button 
-            style={{backgroundColor: color}} 
+            style={{
+                backgroundColor: color,
+                color: '#FFFFFF'  // White text for better contrast on solid background
+            }} 
             type="button" 
-            className='bg-[#D9D9D9] grid place-items-center text-lg w-44 h-12 rounded-md'
+            className='grid place-items-center text-lg w-44 h-12 rounded-md'
         >
             {displayValue}
         </button>

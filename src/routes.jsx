@@ -147,6 +147,8 @@ const ROUTES = [
                     {path: 'dashboard', element: <RiskDashboard />, breadcrumb: 'Dashboard'},
                     {path: 'register/:step?', element: <RiskRegister />, breadcrumb: 'Manage Risk'},
                     {path: 'approve', element: <RiskApprove />, breadcrumb: 'Risk Approval'},
+                    {path: 'approve/:id', element: <RiskApprove />, breadcrumb: 'Approve Risk'},
+                    {path: 'approve-table', element: <RiskLog approvalMode={true} />, breadcrumb: 'Risk Approval Table'},
                     {path: 'follow-up', element: <RiskFollowUp />, breadcrumb: 'Follow Up'},
                     {path: 'import', element: <ImportTab />, breadcrumb: 'Import Risks'},
                     {path: ':id', element: <RiskReview />, breadcrumb: RiskDynamicBreadcrumb},

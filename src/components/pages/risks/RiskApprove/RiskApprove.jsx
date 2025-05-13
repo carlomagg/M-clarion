@@ -364,9 +364,9 @@ function ApprovalHistoryTable({ history, lastUpdated, onLoadSampleData }) {
                     record.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                     record.status === 'FORWARDED' ? 'bg-blue-100 text-blue-800' :
                     record.status === 'ON HOLD' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
+                    'bg-gray-100 text-gray-800'
                   }`}>
-                    {record.status || 'COMPLETED'}
+                    {record.status || 'Unknown'}
                 </span>
               </td>
                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
@@ -750,108 +750,273 @@ function RiskApprove() {
     queryKey: ['approval-history', selectedHistoryRisk],
     queryFn: async () => {
       if (!selectedHistoryRisk) return [];
+      
       try {
         console.log(`Fetching approval history for risk ${selectedHistoryRisk}`);
         const url = `risk/risk/${selectedHistoryRisk}/approval-history/`;
         console.log('Approval history URL:', url);
         
-        // Add a cache-busting parameter to avoid browser caching
+        // Add cache-busting query parameter to avoid getting cached results
         const response = await axios.get(`${url}?_=${Date.now()}`);
+        console.log('Raw approval history API response:', response);
         
-        console.log('Approval history raw response:', response);
-        console.log('Approval history response data:', response.data);
-        
-        // Check if we have any data
         if (!response.data) {
-          console.warn('No approval history data returned from API');
+          console.warn('No data returned from approval history API');
           return [];
         }
         
-        // Ensure the data is in the expected format
-        let historyData = response.data;
+        // Process the response data
+        let history = response.data;
         
-        // If it's not an array, try to find the array in the response
-        if (!Array.isArray(historyData)) {
-          console.log('Response is not an array, checking for nested arrays or properties');
-          
-          // Check if it's in a property of the response
-          for (const key in historyData) {
-            console.log(`Checking key: ${key}, type:`, typeof historyData[key]);
+        // Check if the response has a risk_approval_status_data field which might contain the status
+        if (history && typeof history === 'object' && history.risk_approval_status_data) {
+            console.log('Found risk_approval_status_data in response:', history.risk_approval_status_data);
             
-            if (Array.isArray(historyData[key])) {
-              console.log(`Found history array in key: ${key}`, historyData[key]);
-              historyData = historyData[key];
-              break;
+            // If it's an object, try to extract status information
+            if (typeof history.risk_approval_status_data === 'object') {
+                if (history.risk_approval_status_data.status) {
+                    console.log('Found status in risk_approval_status_data:', history.risk_approval_status_data.status);
+                    history.status = history.risk_approval_status_data.status;
+                } else if (history.risk_approval_status_data.name) {
+                    console.log('Found name in risk_approval_status_data:', history.risk_approval_status_data.name);
+                    history.status = history.risk_approval_status_data.name;
+                } else if (history.risk_approval_status_data.status_name) {
+                    console.log('Found status_name in risk_approval_status_data:', history.risk_approval_status_data.status_name);
+                    history.status = history.risk_approval_status_data.status_name;
+                }
             }
+            // If it's a string, use it directly
+            else if (typeof history.risk_approval_status_data === 'string') {
+                console.log('risk_approval_status_data is a string:', history.risk_approval_status_data);
+                history.status = history.risk_approval_status_data;
+            }
+        }
+        
+        // Extract approval status directly from the response if available
+        let extractedStatus = null;
+        
+        // Examine the response structure to find status information
+        if (history && typeof history === 'object') {
+          console.log('Examining response for status information');
+          
+          // Try to find risk_approval_status directly in the response
+          if (history.risk_approval_status) {
+              extractedStatus = history.risk_approval_status;
+              console.log('Found risk_approval_status directly in response:', extractedStatus);
+          }
+          // Try to find status directly in the response
+          else if (history.status) {
+              extractedStatus = history.status;
+              console.log('Found status directly in response:', extractedStatus);
+          }
+          // Try to find risk_approval_status_id directly in the response
+          else if (history.risk_approval_status_id && approvalStatuses) {
+              const statusId = typeof history.risk_approval_status_id === 'string' 
+                  ? parseInt(history.risk_approval_status_id, 10) 
+                  : history.risk_approval_status_id;
+                  
+              const statusObj = approvalStatuses.find(s => s.id === statusId);
+              if (statusObj) {
+                  extractedStatus = statusObj.status;
+                  console.log('Found status from risk_approval_status_id:', extractedStatus);
+              } else {
+                  const directStatusMap = {
+                      1: 'COMPLETED',
+                      2: 'REJECTED',
+                      3: 'FORWARDED',
+                      4: 'ON HOLD'
+                  };
+                  extractedStatus = directStatusMap[statusId];
+                  console.log('Mapped risk_approval_status_id to status:', extractedStatus);
+              }
           }
         }
         
-        // If we still don't have an array, wrap the object in an array
-        if (!Array.isArray(historyData)) {
-          console.log('Could not find an array in the response, creating single-item array');
-          historyData = [historyData];
+        // Special case: If the response contains a risk_approval_status_name field directly
+        if (history && typeof history === 'object' && !Array.isArray(history) && 
+           (history.risk_approval_status_name || extractedStatus)) {
+          
+          const statusValue = history.risk_approval_status_name || extractedStatus;
+          console.log('Found status directly in response:', statusValue);
+          
+          // Create a history record with the status
+          history = [{
+            date: history.date || history.created_at || new Date().toLocaleDateString(),
+            time: history.time || new Date().toLocaleTimeString(),
+            status: statusValue, // Use the extracted status directly
+            risk_approval_note: history.risk_approval_note || history.comment || history.note || '',
+            action_by: history.action_by || history.actionBy || history.user_name || ''
+          }];
+          console.log('Created history record from direct response:', history);
         }
         
-        // Print out the structure of the data for debugging
-        console.log('History data structure before processing:', 
-                    historyData.map(item => Object.keys(item)));
+        // Check if it's an array or needs extraction
+        if (!Array.isArray(history)) {
+          // Try to find the array in the response
+          for (const key in history) {
+            if (Array.isArray(history[key])) {
+              console.log(`Found history array in key: ${key}`);
+              history = history[key];
+              break;
+            }
+          }
+          
+          // If still not an array, wrap it
+          if (!Array.isArray(history)) {
+            console.log('History data is not an array, wrapping it:', history);
+            history = [history];
+          }
+        }
         
-        // Always return the data exactly as it is from the API, 
-        // with minimal normalization to ensure required fields exist
-        const processedData = historyData.map((record, index) => {
-          console.log(`Processing record ${index}:`, record);
+        // Process and normalize the data - IMPORTANT: don't default to 'COMPLETED'
+        const processedHistory = history.map(record => {
+          console.log('Processing history record:', record);
           
-          // Create a shallow copy to preserve all original fields
-          const normalizedRecord = { ...record };
+          // Extract the original status without defaulting to 'COMPLETED'
+          let originalStatus = null;
           
-          // Ensure that we keep all fields even if empty, for debugging
-          normalizedRecord.date = record.date || '';
-          normalizedRecord.time = record.time || '';
-          normalizedRecord.risk_approval_note = record.risk_approval_note || '';
-          normalizedRecord.action_by = record.action_by || '';
-          normalizedRecord.status = record.status || 'COMPLETED';  // Default status
+          // Direct status field checks
+          if (record.status) originalStatus = record.status;
+          else if (record.approval_status) originalStatus = record.approval_status;
+          else if (record.risk_approval_status) originalStatus = record.risk_approval_status;
+          else if (record.risk_approval_status_name) originalStatus = record.risk_approval_status_name;
+          else if (record.status_name) originalStatus = record.status_name;
+          else if (record.statusName) originalStatus = record.statusName;
           
-          return normalizedRecord;
+          // Check for status in nested status object
+          else if (record.status_obj && record.status_obj.status) originalStatus = record.status_obj.status;
+          else if (record.statusObj && record.statusObj.status) originalStatus = record.statusObj.status;
+          else if (record.approval_status_obj && record.approval_status_obj.status) originalStatus = record.approval_status_obj.status;
+          
+          // Check for nested objects that might contain status information
+          else if (record.risk_approval_status_obj) {
+              if (record.risk_approval_status_obj.status) {
+                  originalStatus = record.risk_approval_status_obj.status;
+              } else if (record.risk_approval_status_obj.name) {
+                  originalStatus = record.risk_approval_status_obj.name;
+              } else if (record.risk_approval_status_obj.status_name) {
+                  originalStatus = record.risk_approval_status_obj.status_name;
+              }
+          }
+          
+          // Check for approval_status_name which is commonly used
+          else if (record.approval_status_name) originalStatus = record.approval_status_name;
+          
+          // Check for status ID and map to status text
+          else if (record.risk_approval_status_id && approvalStatuses) {
+              // Convert to number if it's a string
+              const statusId = typeof record.risk_approval_status_id === 'string' 
+                  ? parseInt(record.risk_approval_status_id, 10) 
+                  : record.risk_approval_status_id;
+                  
+              // Try to find in approvalStatuses first
+              const statusObj = approvalStatuses.find(s => s.id === statusId);
+              if (statusObj) originalStatus = statusObj.status;
+              else {
+                  // Direct mapping if approvalStatuses doesn't contain the ID
+                  const directStatusMap = {
+                      1: 'COMPLETED',
+                      2: 'REJECTED',
+                      3: 'FORWARDED',
+                      4: 'ON HOLD'
+                  };
+                  originalStatus = directStatusMap[statusId] || `Status ${statusId}`;
+              }
+          }
+          else if (record.status_id && approvalStatuses) {
+              // Convert to number if it's a string
+              const statusId = typeof record.status_id === 'string' 
+                  ? parseInt(record.status_id, 10) 
+                  : record.status_id;
+                  
+              const statusObj = approvalStatuses.find(s => s.id === statusId);
+              if (statusObj) originalStatus = statusObj.status;
+              else {
+                  // Direct mapping if approvalStatuses doesn't contain the ID
+                  const directStatusMap = {
+                      1: 'COMPLETED',
+                      2: 'REJECTED',
+                      3: 'FORWARDED',
+                      4: 'ON HOLD'
+                  };
+                  originalStatus = directStatusMap[statusId] || `Status ${statusId}`;
+              }
+          }
+          
+          // Check for any field that might contain status information
+          if (!originalStatus) {
+              for (const key in record) {
+                  if (typeof record[key] === 'string' && 
+                      (key.toLowerCase().includes('status') || 
+                       ['completed', 'rejected', 'forwarded', 'on hold'].includes(record[key].toUpperCase()))) {
+                      console.log(`Found potential status in field "${key}":`, record[key]);
+                      originalStatus = record[key];
+                      break;
+                  }
+              }
+          }
+          
+          console.log('Original status value:', originalStatus);
+          
+          // Check time format - it might be stored in a different format or field
+          let timeValue = record.time;
+          
+          // If time is in a format like "HH:MM:SS" without AM/PM, convert it to 12-hour format
+          if (timeValue && timeValue.match(/^\d{2}:\d{2}:\d{2}$/)) {
+              const [hours, minutes] = timeValue.split(':');
+              const hoursNum = parseInt(hours, 10);
+              // Add 1 hour to fix the time being 1 hour behind
+              const adjustedHours = (hoursNum + 1) % 24;
+              const ampm = adjustedHours >= 12 ? 'PM' : 'AM';
+              const hours12 = adjustedHours % 12 || 12; // Convert 0 to 12 for 12 AM
+              timeValue = `${hours12}:${minutes} ${ampm}`;
+          }
+          
+          // If no time field, check for created_at or other timestamp fields
+          if (!timeValue && record.created_at) {
+              const date = new Date(record.created_at);
+              if (!isNaN(date.getTime())) {
+                  // Add 1 hour to fix the time being 1 hour behind
+                  date.setHours(date.getHours() + 1);
+                  timeValue = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+          }
+          
+          // Map common numeric status IDs to status names if we still don't have a status
+          if (!originalStatus && typeof record.status === 'number' && approvalStatuses) {
+              const statusObj = approvalStatuses.find(s => s.id === record.status);
+              if (statusObj) originalStatus = statusObj.status;
+          }
+          
+          // Last resort: Map common numeric values to standard statuses
+          if (!originalStatus && typeof record.status === 'number') {
+              // Common mapping pattern in many APIs
+              const statusMap = {
+                  1: 'COMPLETED',
+                  2: 'REJECTED',
+                  3: 'FORWARDED',
+                  4: 'ON HOLD'
+              };
+              originalStatus = statusMap[record.status] || `Status ${record.status}`;
+          }
+          
+          return {
+            date: record.date || '',
+            time: timeValue || '',
+            status: originalStatus || 'Unknown', // Changed from 'COMPLETED' to 'Unknown'
+            risk_approval_note: record.risk_approval_note || record.comment || record.note || '',
+            action_by: record.action_by || record.actionBy || record.user_name || ''
+          };
         });
         
-        // Log the final processed data
-        console.log('Processed approval history data:', processedData);
-        return processedData;
+        console.log('Processed history data:', processedHistory);
+        return processedHistory;
       } catch (error) {
         console.error(`Error fetching approval history for risk ${selectedHistoryRisk}:`, error);
-        console.error('Error details:', error.response || error.message);
-        
-        // Return a fallback sample for testing if the API fails
-        if (error.response?.status === 404) {
-          console.log('API returned 404, returning sample history data for testing');
-          return [
-            {
-              date: '01-05-2025',
-              time: '08:41 PM',
-              risk_approval_note: 'Approved after review',
-              action_by: 'Super admin',
-              status: 'COMPLETED'
-            },
-            {
-              date: '30-04-2025',
-              time: '02:15 PM',
-              risk_approval_note: 'Please review this risk',
-              action_by: 'John Doe',
-              status: 'FORWARDED'
-            }
-          ];
-        }
-        
         return [];
       }
     },
-    enabled: !!selectedHistoryRisk && activeTab === 'history',
-    // More aggressive refreshing
-    refetchInterval: activeTab === 'history' ? 5000 : false, // Refresh every 5 seconds when in history tab
-    refetchOnWindowFocus: true, // Refresh when window regains focus
-    refetchOnMount: true, // Always refresh when component mounts
-    staleTime: 0, // Consider data always stale to force refresh
-    cacheTime: 30000 // Only cache for 30 seconds
+    enabled: !!selectedHistoryRisk
   });
 
   // Inside the main RiskApprove component, add this effect to check for completed actions

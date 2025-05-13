@@ -31,9 +31,32 @@ export default function BoundaryLevelsTable({items, checkOverlap }) {
     }
 
     function createRecordOptions(record) {
+        console.log('Creating options for record:', record);
+        
+        // Make sure we're passing a complete record to the edit modal
+        const handleEdit = () => {
+            console.log('Edit button clicked for record:', record);
+            // Ensure the record has the necessary fields before opening the edit modal
+            if (!record.id) {
+                console.error('Record is missing ID, cannot edit');
+                dispatchMessage('failed', 'Cannot edit this record - missing ID');
+                return;
+            }
+            
+            setShowModal({
+                context: {
+                    mode: 'edit', 
+                    id: record.id,
+                    checkOverlap,
+                    // Optionally pre-populate with existing data to ensure it's available
+                    record: record
+                }
+            });
+        };
+        
         const options = [
             {text: 'View', type: 'action', action: () => setShowModal({context: {mode: 'view', id: record.id}})},
-            {text: 'Edit', type: 'action', action: () => setShowModal({context: {mode: 'edit', id: record.id, checkOverlap}})},
+            {text: 'Edit', type: 'action', action: handleEdit},
             {text: 'Delete', type: 'action', action: () => confirmAction(() => deleteBoundary({id: record.id}))},
             {text: 'History', type: 'action', action: () => {}},
         ];
@@ -81,6 +104,12 @@ export default function BoundaryLevelsTable({items, checkOverlap }) {
 }
 
 function TableRecord({record, options}) {
+    // Add logging to debug the record data
+    console.log('TableRecord received record:', record);
+    
+    // Handle both color and colour fields for robustness
+    const colorValue = record['color'] || record['colour'] || 'black';
+    
     return (
         <div className='px-4 flex items-center gap-4'>
             <span className='py-2 flex-[.5_0]'>{record['sn']}</span>
@@ -89,8 +118,8 @@ function TableRecord({record, options}) {
             <span className='py-2 flex-[1_0] text-center'>{record['higher_bound']}</span>
             <span className='py-2 flex-[1_0]'>
                 <span className="flex items-center gap-2">
-                    <ColorChip color={record['colour']} />
-                    {record['colour']}
+                    <ColorChip color={colorValue} />
+                    {colorValue}
                 </span>
             </span>
             <span className='py-2 flex-[.5_0]'>

@@ -15,6 +15,26 @@ async function fetchRiskIdentification({queryKey}) {
     try {
         const response = await axios.get(`risk/risks/${riskId}/view/`);
         console.log('Risk identification data received:', response.data);
+        
+        // Enhanced logging to see the detailed structure of the response
+        console.log('Response structure check:');
+        const risk_details = response.data['Risk_details'];
+        console.log('Risk_details present:', !!risk_details);
+        if (risk_details) {
+            console.log('Risk name:', risk_details.risk_name);
+            console.log('Category structure:', risk_details.Category);
+            console.log('Class structure:', risk_details.Class);
+            console.log('Date identified:', risk_details.date_identified);
+            console.log('Description:', risk_details.description?.substring(0, 50) + '...');
+            console.log('Risk tags:', risk_details.risk_tags);
+            console.log('Identification tools:', risk_details.identification_tool);
+            console.log('Risk owner:', risk_details.risk_owner);
+            console.log('Risk note:', risk_details.risk_note);
+            console.log('Risk area:', risk_details.risk_area);
+            console.log('Risk triggers:', risk_details.risk_triggers?.length || 0, 'items');
+            console.log('Linked resources:', risk_details.linked_resources?.length || 0, 'items');
+        }
+        
         return response.data['Risk_details'];
     } catch (error) {
         console.error('Error fetching risk identification:', error);
@@ -1063,7 +1083,6 @@ async function deleteConsequence({id}) {
     return response.data;
 }
 
-
 //query hooks
 export function useRiskName(id) {
     return useQuery(riskLogOptions({select: (risks) => risks.find(r => r.risk_id == id)?.Title}));
@@ -1268,7 +1287,6 @@ export function risksPendingApprovalOptions(options) {
         ...options
     })
 }
-
 // mutation hooks
 export function useAddRisk(callbacks) {
     return useMutation({
@@ -1575,4 +1593,6 @@ export function useRemoveRiskApprover(callbacks) {
         ...callbacks
     });
 }
+
+
 

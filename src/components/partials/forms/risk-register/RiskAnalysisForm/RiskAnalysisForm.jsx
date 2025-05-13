@@ -13,13 +13,21 @@ import ImpactSelector from '../components/ImpactSelector';
 import { riskBoundariesOptions } from '../../../../../queries/risks/risk-boundaries';
 import { riskMatrixSizeOptions } from '../../../../../queries/risks/risk-likelihood-matrix';
 
-function RiskAnalysisForm({mode}) {
+function RiskAnalysisForm({mode, currentRiskId, onRiskIdChange}) {
     const [searchParams, setSearchParams] = useSearchParams();
     const params = useParams();
-    const riskID = mode === 'update' ? params.id : searchParams.get('id');
+    // Use currentRiskId from props if available, otherwise fallback to URL params
+    const riskID = mode === 'update' ? params.id : (currentRiskId || searchParams.get('id'));
     const navigate = useNavigate();
     const dispatchMessage = useDispatchMessage();
     const queryClient = useQueryClient();
+
+    // Update the parent component with the current risk ID if needed
+    useEffect(() => {
+        if (riskID && onRiskIdChange) {
+            onRiskIdChange(riskID);
+        }
+    }, [riskID, onRiskIdChange]);
 
     // Add validation for riskID
     useEffect(() => {
@@ -29,17 +37,56 @@ function RiskAnalysisForm({mode}) {
         }
     }, [riskID, navigate, dispatchMessage]);
 
-    const [formData, setFormData] = useState({
-        inherent_likelihood_score: '',
-        inherent_impact_score: '',
-        inherent_risk_rating: '',
-        impact_focus_id: '',
-        // Still keep residual risk in the data structure for API compatibility
-        // but don't display it in the UI
-        residual_risk_likelihood_score: '',
-        residual_risk_impact_score: '',
-        residual_risk_rating: '',
+    // Initialize form data from sessionStorage if available
+    const [formData, setFormData] = useState(() => {
+        const savedData = sessionStorage.getItem(`risk_analysis_${riskID}`);
+        if (savedData && riskID) {
+            try {
+                const parsedData = JSON.parse(savedData);
+                console.log('Loaded saved analysis data from session storage:', parsedData);
+                
+                // Handle potential API format field names in the saved data
+                const processedData = {
+                    ...parsedData,
+                    // Ensure we have the expected field names for our form
+                    inherent_likelihood_score: parsedData.inherent_likelihood_score || parsedData.inherent_risk_likelihood_score || '',
+                    inherent_impact_score: parsedData.inherent_impact_score || parsedData.inherent_risk_impact_score || '',
+                    inherent_risk_rating: parsedData.inherent_risk_rating || '',
+                    residual_risk_likelihood_score: parsedData.residual_risk_likelihood_score || '',
+                    residual_risk_impact_score: parsedData.residual_risk_impact_score || '',
+                    residual_risk_rating: parsedData.residual_risk_rating || ''
+                };
+                
+                console.log('Processed saved analysis data:', processedData);
+                return processedData;
+            } catch (e) {
+                console.error('Error parsing saved analysis data:', e);
+            }
+        }
+        
+        // Default form data if nothing is saved
+        return {
+            inherent_likelihood_score: '',
+            inherent_impact_score: '',
+            inherent_risk_rating: '',
+            impact_focus_id: '',
+            // Still keep residual risk in the data structure for API compatibility
+            // but don't display it in the UI
+            residual_risk_likelihood_score: '',
+            residual_risk_impact_score: '',
+            residual_risk_rating: '',
+        };
     });
+    
+    // Save form data to sessionStorage whenever it changes
+    useEffect(() => {
+        if (riskID) {
+            // Simply save the exact form data without adding extra fields
+            // This ensures the Review step sees exactly what was entered
+            console.log('Saving analysis data to sessionStorage:', formData);
+            sessionStorage.setItem(`risk_analysis_${riskID}`, JSON.stringify(formData));
+        }
+    }, [formData, riskID]);
 
     // update inherent risk rating when likelihood or impact score changes
     useEffect(() => {
@@ -69,40 +116,32 @@ function RiskAnalysisForm({mode}) {
         ]
     });
 
-    // update form data with risk analysis details if it exists
+    // update form data with risk analysis details if they exist
     useEffect(() => {
         if (riskAnalysisQuery.data) {
             const details = riskAnalysisQuery.data;
-            // Parse the inherent risk rating value
-            let inherentRiskRating = '';
-            if (details.inherent_risk_rating) {
-                if (typeof details.inherent_risk_rating === 'object' && details.inherent_risk_rating.score !== undefined) {
-                    inherentRiskRating = details.inherent_risk_rating.score;
-                } else {
-                    inherentRiskRating = details.inherent_risk_rating;
-                }
-            } else if (details.inherent_risk_likelihood_score && details.inherent_risk_impact_score) {
+            
+            // Log the received data for debugging
+            console.log('Loading risk analysis data - raw response:', details);
+            
+            // Calculate inherent risk rating, ensuring we have valid numbers
+            let inherentRiskRating = 0;
+            if (details.inherent_risk_likelihood_score !== null && details.inherent_risk_impact_score !== null &&
+                !isNaN(Number(details.inherent_risk_likelihood_score)) && !isNaN(Number(details.inherent_risk_impact_score))) {
                 inherentRiskRating = Number(details.inherent_risk_likelihood_score) * Number(details.inherent_risk_impact_score);
             }
             
-            // Parse the residual risk rating value
-            let residualRiskRating = '';
-            if (details.residual_risk_rating) {
-                if (typeof details.residual_risk_rating === 'object' && details.residual_risk_rating.score !== undefined) {
-                    residualRiskRating = details.residual_risk_rating.score;
-                } else {
-                    residualRiskRating = details.residual_risk_rating;
-                }
-            } else if (details.residual_risk_likelihood_score && details.residual_risk_impact_score) {
+            // Calculate residual risk rating, ensuring we have valid numbers
+            let residualRiskRating = 0;
+            if (details.residual_risk_likelihood_score !== null && details.residual_risk_impact_score !== null &&
+                !isNaN(Number(details.residual_risk_likelihood_score)) && !isNaN(Number(details.residual_risk_impact_score))) {
                 residualRiskRating = Number(details.residual_risk_likelihood_score) * Number(details.residual_risk_impact_score);
-            }
-            
-            // For new records, set residual risk = inherent risk initially
-            if (!residualRiskRating && inherentRiskRating) {
+            } else if (inherentRiskRating > 0) {
+                // For new records, set residual risk = inherent risk initially
                 residualRiskRating = inherentRiskRating;
             }
             
-            console.log('Loading risk analysis data:', {
+            console.log('Processed risk analysis data:', {
                 inherent: {
                     likelihood: details.inherent_risk_likelihood_score,
                     impact: details.inherent_risk_impact_score,
@@ -112,21 +151,59 @@ function RiskAnalysisForm({mode}) {
                     likelihood: details.residual_risk_likelihood_score || details.inherent_risk_likelihood_score,
                     impact: details.residual_risk_impact_score || details.inherent_risk_impact_score,
                     rating: residualRiskRating
-                }
+                },
+                impactFocus: details.impact_focus?.id
             });
             
-            setFormData({
-                inherent_likelihood_score: details.inherent_risk_likelihood_score,
-                inherent_impact_score: details.inherent_risk_impact_score,
-                inherent_risk_rating: inherentRiskRating,
-                impact_focus_id: details.impact_focus?.id,
-                // Preserve existing residual risk values if they exist, otherwise copy from inherent risk
-                residual_risk_likelihood_score: details.residual_risk_likelihood_score || details.inherent_risk_likelihood_score,
-                residual_risk_impact_score: details.residual_risk_impact_score || details.inherent_risk_impact_score,
-                residual_risk_rating: residualRiskRating,
-            });
+            // Check if data from sessionStorage is more complete than API data
+            const sessionData = sessionStorage.getItem(`risk_analysis_${riskID}`);
+            let shouldUseSessionData = false;
+            
+            if (sessionData) {
+                try {
+                    const parsedSessionData = JSON.parse(sessionData);
+                    // Use sessionStorage data if it has more fields filled in
+                    if ((parsedSessionData.inherent_likelihood_score && !details.inherent_risk_likelihood_score) ||
+                        (parsedSessionData.inherent_impact_score && !details.inherent_risk_impact_score) ||
+                        (parsedSessionData.impact_focus_id && !details.impact_focus?.id)) {
+                        console.log('Using more complete session data instead of API data');
+                        shouldUseSessionData = true;
+                        
+                        // Merge API data and session data, prioritizing session data
+                        const mergedData = {
+                            ...details,
+                            inherent_risk_likelihood_score: parsedSessionData.inherent_likelihood_score || details.inherent_risk_likelihood_score,
+                            inherent_risk_impact_score: parsedSessionData.inherent_impact_score || details.inherent_risk_impact_score,
+                            inherent_risk_rating: parsedSessionData.inherent_risk_rating || inherentRiskRating,
+                            impact_focus_id: parsedSessionData.impact_focus_id || details.impact_focus?.id,
+                            residual_risk_likelihood_score: parsedSessionData.residual_risk_likelihood_score || details.residual_risk_likelihood_score,
+                            residual_risk_impact_score: parsedSessionData.residual_risk_impact_score || details.residual_risk_impact_score,
+                            residual_risk_rating: parsedSessionData.residual_risk_rating || residualRiskRating
+                        };
+                        
+                        setFormData(mergedData);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error parsing session data:', e);
+                }
+            }
+            
+            if (!shouldUseSessionData) {
+                // Set form data with thorough null/undefined checks
+                setFormData({
+                    inherent_likelihood_score: details.inherent_risk_likelihood_score || '',
+                    inherent_impact_score: details.inherent_risk_impact_score || '',
+                    inherent_risk_rating: inherentRiskRating || '',
+                    impact_focus_id: details.impact_focus?.id || '',
+                    // Preserve existing residual risk values if they exist, otherwise copy from inherent risk
+                    residual_risk_likelihood_score: details.residual_risk_likelihood_score || details.inherent_risk_likelihood_score || '',
+                    residual_risk_impact_score: details.residual_risk_impact_score || details.inherent_risk_impact_score || '',
+                    residual_risk_rating: residualRiskRating || '',
+                });
+            }
         }
-    }, [riskAnalysisQuery.data]);
+    }, [riskAnalysisQuery.data, riskID]);
 
     // mutations
     const {isPending: isUpdatingRiskAnalysis, mutate: updateRiskAnalysis} = useUpdateRiskAnalysis(riskID, {onSuccess, onError, onSettled});
@@ -171,6 +248,11 @@ function RiskAnalysisForm({mode}) {
         if (!error) {
             // Add a short delay before navigation to allow success message to display
             setTimeout(() => {
+                // Ensure the riskID is in sessionStorage for consistency
+                if (riskID) {
+                    sessionStorage.setItem('current_risk_id', riskID);
+                }
+                
                 // will only navigate to next step if analysis in newly added
                 navigate(`/risks/register/treatment-plan?id=${riskID}`);
             }, 1500); // 1.5 second delay
@@ -184,12 +266,13 @@ function RiskAnalysisForm({mode}) {
     }
 
     function prepareDataForSubmission() {
-        // Ensure the inherent risk rating is calculated correctly
+        // Only ensure the inherent risk rating is calculated correctly
+        // Don't add any extra fields that aren't needed for the API
         const preparedData = {
             ...formData,
             inherent_risk_rating: formData.inherent_likelihood_score && formData.inherent_impact_score ? 
                 Number(formData.inherent_likelihood_score) * Number(formData.inherent_impact_score) : 
-                formData.inherent_risk_rating,
+                formData.inherent_risk_rating
         };
         
         // For new submissions, set initial residual risk values to match inherent risk
@@ -207,6 +290,13 @@ function RiskAnalysisForm({mode}) {
         
         console.log('RiskAnalysisForm - Submitting risk analysis:', dataToSubmit);
         
+        // Force an update to sessionStorage with the complete data before submitting
+        // This ensures the review step will have access to this data
+        if (riskID) {
+            console.log('RiskAnalysisForm - Force saving complete data to sessionStorage before API call');
+            sessionStorage.setItem(`risk_analysis_${riskID}`, JSON.stringify(dataToSubmit));
+        }
+        
         // Send the data to the API
         try {
             updateRiskAnalysis({data: dataToSubmit});
@@ -221,6 +311,13 @@ function RiskAnalysisForm({mode}) {
         const dataToSubmit = prepareDataForSubmission();
         
         console.log('RiskAnalysisForm - Saving to draft:', dataToSubmit);
+        
+        // Force an update to sessionStorage with the complete data before submitting
+        // This ensures the review step will have access to this data
+        if (riskID) {
+            console.log('RiskAnalysisForm - Force saving complete data to sessionStorage before draft save');
+            sessionStorage.setItem(`risk_analysis_${riskID}`, JSON.stringify(dataToSubmit));
+        }
         
         // Save to draft
         try {
@@ -293,7 +390,7 @@ function RiskAnalysisForm({mode}) {
                 <FormCancelButton text={'Discard'} />
                 <FormCustomButton text={'Previous'} onClick={() => navigate(-1)} />
                 <FormCustomButton disabled={isSavingAnalysisToDraft} text={isSavingAnalysisToDraft ? 'Saving To Draft' : 'Save To Draft'} onClick={handleSaveToDraftClicked} />
-                <FormProceedButton disabled={isUpdatingRiskAnalysis} text={isUpdatingRiskAnalysis ? 'Saving...' : 'Save'} onClick={handleNextClicked} />
+                <FormProceedButton disabled={isUpdatingRiskAnalysis} text={isUpdatingRiskAnalysis ? 'Saving...' : 'Next'} onClick={handleNextClicked} />
             </div>
         </form>
     )

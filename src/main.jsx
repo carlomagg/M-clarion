@@ -34,6 +34,7 @@ console.log('Using API URL:', apiUrl);
 axios.defaults.baseURL = apiUrl;
 axios.defaults.timeout = 30000; // 30 second timeout
 axios.defaults.headers.common['Accept'] = 'application/json';
+axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.maxRedirects = 5;
 axios.defaults.maxContentLength = 50 * 1024 * 1024; // 50MB
 // Force HTTP/1.1
@@ -49,6 +50,7 @@ const axiosInstance = axios.create({
     timeout: 30000,
     headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'Connection': 'keep-alive'
     },
     maxRedirects: 5,
@@ -62,7 +64,9 @@ const axiosInstance = axios.create({
     // Implement retry logic
     retry: 3,
     retryDelay: (retryCount) => retryCount * 1000,
-    validateStatus: (status) => status >= 200 && status < 300
+    validateStatus: (status) => status >= 200 && status < 300,
+    // Enable credentials to ensure cookies are sent with requests
+    withCredentials: true
 });
 
 // Add response interceptor for error handling
@@ -101,33 +105,73 @@ const unauthorizedEndpoints = ['clarion_users/login/', 'clarion_users/verify_log
 // add access tokens to all authorized endpoints
 axiosInstance.interceptors.request.use(
     function (config) {
-        // Ensure URL starts with /
-        if (!config.url.startsWith('/')) {
-            config.url = '/' + config.url;
+        // Handle URL formatting
+        // If URL contains protocol, leave it as is
+        if (!config.url.includes('://')) {
+            // Remove leading slash if present, as baseURL already has a trailing slash
+            if (config.url.startsWith('/')) {
+                config.url = config.url.substring(1);
+            }
+            
+            // Handle any double slashes that might occur
+            while (config.url.includes('//')) {
+                config.url = config.url.replace('//', '/');
+            }
+        }
+
+        console.log(`Request to: ${config.method?.toUpperCase() || 'GET'} ${config.baseURL}${config.url}`);
+        console.log('Request headers:', config.headers);
+        
+        // Set default content type if not already set
+        if (!config.headers['Content-Type'] && !config._retry) {
+            config.headers['Content-Type'] = 'application/json';
         }
 
         if (!config._retry && !unauthorizedEndpoints.includes(config.url.replace('/', ''))) {
             const accessToken = get('access');
             if (accessToken) {
                 config.headers['Authorization'] = `Bearer ${accessToken}`;
+                console.log('Added authorization token to request');
+            } else {
+                console.warn('No access token found for authenticated endpoint');
             }
         }
         
         return config;
     },
     function (error) {
+        console.error('Request interceptor error:', error);
         return Promise.reject(error);
     }
 );
 
 // Handle response errors and retry logic
 axiosInstance.interceptors.response.use(
-    response => response,
+    response => {
+        console.log(`Response from ${response.config.method?.toUpperCase() || 'GET'} ${response.config.url}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            data: response.data
+        });
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
         
+        if (error.response) {
+            console.error(`API Error for ${originalRequest?.method?.toUpperCase() || 'GET'} ${originalRequest?.url}:`, {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                data: error.response.data
+            });
+        } else if (error.request) {
+            console.error('No response received from API:', error.request);
+        } else {
+            console.error('Error in API request setup:', error.message);
+        }
+        
         // Don't retry for unauthorized endpoints or already retried requests
-        if (unauthorizedEndpoints.includes(originalRequest.url.replace('/', '')) || originalRequest._retry) {
+        if (unauthorizedEndpoints.includes(originalRequest?.url.replace('/', '')) || originalRequest?._retry) {
             return Promise.reject(error);
         }
 
@@ -138,10 +182,12 @@ axiosInstance.interceptors.response.use(
             try {
                 const refreshToken = get('refresh');
                 if (!refreshToken) {
+                    console.warn('No refresh token available, logging out');
                     auth.logout();
                     return Promise.reject(error);
                 }
 
+                console.log('Attempting to refresh token');
                 // Try to refresh the token
                 const response = await axiosInstance.post('clarion_users/token/refresh/', 
                     { refresh: refreshToken },
@@ -151,16 +197,19 @@ axiosInstance.interceptors.response.use(
                 const { access } = response.data;
                 if (access) {
                     // Update access token and retry original request
+                    console.log('Token refreshed successfully, retrying original request');
                     set('access', access);
                     axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${access}`;
                     originalRequest.headers['Authorization'] = `Bearer ${access}`;
                     return axiosInstance(originalRequest);
                 } else {
+                    console.warn('Token refresh response did not contain access token, logging out');
                     auth.logout();
                     return Promise.reject(error);
                 }
             } catch (refreshError) {
                 // If refresh fails, clear tokens and logout
+                console.error('Token refresh failed:', refreshError);
                 auth.logout();
                 return Promise.reject(refreshError);
             }

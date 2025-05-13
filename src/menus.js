@@ -74,7 +74,7 @@ export const SIDEBAR_MENU = [
             {link: '/risks', text: 'Manage Risk', permission: 'register_risk'},
             {link: '/risks/register', text: 'Enrol Risk', permission: 'register_risk'},
             {link: '/risks/follow-up', text: 'Risk Follow Up', permission: 'register_risk'},
-            {link: '/risks/approve', text: 'Risk Approval', permission: 'register_risk'},
+            {link: '/risks/approve-table', text: 'Risk Approval', permission: 'register_risk'},
         ]
     },
     {

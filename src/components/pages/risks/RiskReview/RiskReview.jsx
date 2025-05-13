@@ -11,18 +11,24 @@ import ActionsDropdown from '../../../partials/dropdowns/ActionsDropdown/Actions
 import LinkButton from '../../../partials/buttons/LinkButton/LinkButton';
 import Review from '../../../partials/forms/risk-register/RiskReview/RiskReview';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDeleteRisk } from '../../../../queries/risks/risk-queries';
 import useDispatchMessage from '../../../../hooks/useDispatchMessage';
 import { useQueryClient } from '@tanstack/react-query';
 
-function RiskReview() {
-    const [isPanelVisible, setIsPanelVisible] = useState(false);
+export default function RiskReview() {
+    const [isPanelVisible, setIsPanelVisible] = useState(true);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const { id } = useParams();
     const navigate = useNavigate();
     const dispatchMessage = useDispatchMessage();
     const queryClient = useQueryClient();
+    const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    
+    // Check if we should be in read-only mode
+    const readOnly = searchParams.get('readOnly') === 'true';
+    // Check if we're in approval mode (keeps approval section editable)
+    const approvalMode = searchParams.get('approvalMode') === 'true';
     
     // Set up delete risk mutation
     const { isPending: isDeleting, mutate: deleteRisk } = useDeleteRisk({
@@ -36,25 +42,21 @@ function RiskReview() {
         }
     });
     
-    // Handle delete confirmation
-    const handleDeleteConfirm = () => {
+    function handleDeleteConfirm() {
         deleteRisk(id);
-        setShowDeleteConfirm(false);
-    };
+    }
     
     const actions = [
-        {text: 'Import', icon: importIcon, type: 'link', link: 'add-multiple-users?m=file', permission: 'add_mulitple_users_file'},
-        {text: 'Export', icon: exportIcon, type: 'link', link: 'add-multiple-users?m=email', permission: 'add_multiple_users_emails'},
-        {text: 'Edit', icon: null, type: 'link', link: `/risks/${id}/update?section=identification`, permission: 'edit_risk'},
-        {text: 'Delete', icon: deleteIcon, type: 'action', action: () => setShowDeleteConfirm(true), permission: 'delete_risk'}
+        {text: 'Export', icon: exportIcon, type: 'action', action: () => {}},
+        {text: 'Delete', icon: deleteIcon, type: 'action', action: () => setShowDeleteConfirm(true)},
     ];
-
+    
     return (
         <div className='p-10 pt-4 max-w-7xl flex flex-col gap-6'>
-            <PageTitle title={'Risk Details'} />
+            <PageTitle title={approvalMode ? 'Risk Approval' : 'Risk Details'} />
             <PageHeader>
                 <div className='flex gap-3'>
-                    <ActionsDropdown label={'Actions'} items={actions} />
+                    {!readOnly && !approvalMode && <ActionsDropdown label={'Actions'} items={actions} />}
                     <button onClick={() => setIsPanelVisible(!isPanelVisible)} className={styles.panelToggleButton}>
                         <img src={panelToggleIcon} alt="" className='w-6 h-6' />
                     </button>
@@ -62,7 +64,11 @@ function RiskReview() {
             </PageHeader>
             <div className='mt-4'> {/* main content container */}
                 <section>
-                    <Review mode={'standalone'} />
+                    <Review 
+                        mode={'standalone'} 
+                        readOnly={readOnly} 
+                        approvalMode={approvalMode}
+                    />
                 </section>
             </div>
             
@@ -93,7 +99,7 @@ function RiskReview() {
                 document.body
             )}
         </div>
-    );
+    )
 }
 
 function SidePanel({onHideSidePanel}) {
@@ -195,5 +201,3 @@ export function ActivityLog({log}) {
         </div>
     );
 }
-
-export default RiskReview;

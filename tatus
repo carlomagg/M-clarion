@@ -1,5 +1,0 @@
-[33mcommit 65e84ab0da2a78e8db1ec9db5179234626698ed0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
-Author: carlomagg <carlomagg@gmail.com>
-Date:   Thu Apr 24 13:06:37 2025 +0100
-
-    Fix API response parsing in AIProcessOverview component to handle string format responses

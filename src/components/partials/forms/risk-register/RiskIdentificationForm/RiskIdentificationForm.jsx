@@ -19,7 +19,7 @@ import useRiskDescriptionSuggestion from '../../../../../queries/ai/risks/risk-d
 import useRiskTagsSuggestion from '../../../../../queries/ai/risks/risk-tags';
 import RiskRating from '../components/RiskRating';
 
-function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskCategory, setRiskClass}) {
+function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskCategory, setRiskClass, onRiskIdChange}) {
     const [searchParams, setSearchParams] = useSearchParams();
     const params = useParams();
     const riskID = mode === 'update' ? params.id : searchParams.get('id');
@@ -27,24 +27,62 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
     const queryClient = useQueryClient();
     const dispatchMessage = useDispatchMessage();
     
+    // Update the parent component with the current risk ID when it becomes available
+    useEffect(() => {
+        if (riskID && onRiskIdChange) {
+            onRiskIdChange(riskID);
+        }
+    }, [riskID, onRiskIdChange]);
+
     console.log('RiskIdentificationForm - mode:', mode);
     console.log('RiskIdentificationForm - params.id:', params.id);
     console.log('RiskIdentificationForm - riskID:', riskID);
 
-    const [formData, setFormData] = useState({
-        name: '',
-        category_id: '',
-        class_id: '',
-        date: '',
-        description: '',
-        tags: '',
-        identification_tool_ids: [],
-        owner_id: '',
-        note: '',
-        link_area_id: '',
-        risk_trigger_ids: [],
-        linked_resources_ids: []
+    // Load saved form data from sessionStorage if available
+    const [formData, setFormData] = useState(() => {
+        const savedData = sessionStorage.getItem(`risk_identification_${riskID}`);
+        if (savedData && riskID) {
+            try {
+                const parsedData = JSON.parse(savedData);
+                console.log('Loaded saved identification data from session storage:', parsedData);
+                return parsedData;
+            } catch (e) {
+                console.error('Error parsing saved identification data:', e);
+            }
+        }
+        
+        // Default form data if nothing is saved
+        return {
+            name: '',
+            category_id: '',
+            class_id: '',
+            date: formatDateToYYYYMMDD(new Date()), // Set current date as default
+            description: '',
+            tags: '',
+            identification_tool_ids: [],
+            owner_id: '',
+            note: ' ',
+            link_area_id: '',
+            risk_trigger_ids: [],
+            linked_resources_ids: []
+        };
     });
+    
+    // Helper function to format date to YYYY-MM-DD format for the date input
+    function formatDateToYYYYMMDD(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // Save form data to sessionStorage whenever it changes
+    useEffect(() => {
+        if (riskID) {
+            sessionStorage.setItem(`risk_identification_${riskID}`, JSON.stringify(formData));
+        }
+    }, [formData, riskID]);
+
     const [showModal, setShowModal] = useState(null);
 
     // queries
@@ -114,22 +152,58 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
         if (riskIdentificationQuery.data) {
             console.log('Setting form data from query result:', riskIdentificationQuery.data);
             const details = riskIdentificationQuery.data;
-            const dateParts = String(details.date_identified).split('-');
-            const formattedDateString = dateParts ? dateParts[2]+'-'+dateParts[1]+'-'+dateParts[0] : null;
-            setFormData({
+            
+            // Detailed logging of each field before parsing/transformation
+            console.log('Details field check before transformation:');
+            console.log('- risk_name:', details.risk_name);
+            console.log('- Category:', details.Category, 'Category ID:', details.Category?.id);
+            console.log('- Class:', details.Class, 'Class ID:', details.Class?.id);
+            console.log('- date_identified:', details.date_identified);
+            console.log('- description:', details.description?.substring(0, 50) + '...');
+            
+            // More robust date formatting with fallback
+            let formattedDateString = '';
+            try {
+                if (details.date_identified) {
+                    const dateParts = String(details.date_identified).split('-');
+                    if (dateParts.length === 3) {
+                        formattedDateString = dateParts[2]+'-'+dateParts[1]+'-'+dateParts[0];
+                    } else {
+                        console.warn('Date format is not as expected:', details.date_identified);
+                        formattedDateString = details.date_identified; // Use as-is if not in expected format
+                    }
+                }
+            } catch (error) {
+                console.error('Error parsing date:', error);
+                formattedDateString = details.date_identified || ''; // Fallback to original or empty
+            }
+            
+            // More robust data mapping with thorough null/undefined checks
+            const newFormData = {
                 name: details.risk_name || '',
-                category_id: details.Category?.id || '',
-                class_id: details.Class?.id || '',
-                date: formattedDateString || '',
+                category_id: details.Category?.id || details.category_id || '',
+                class_id: details.Class?.id || details.class_id || '',
+                date: formattedDateString || formatDateToYYYYMMDD(new Date()), // Use current date if no date is found
                 description: details.description || '',
                 tags: details.risk_tags || '',
-                identification_tool_ids: details.identification_tool?.map(i => i.id) || [],
-                owner_id: details.risk_owner?.id || '',
-                note: details.risk_note || '',
-                link_area_id: details.risk_area?.id || '',
-                risk_trigger_ids: details.risk_triggers?.map(t => t.id) || [],
-                linked_resources_ids: details.linked_resources?.map(l => l.id) || []
-            });
+                identification_tool_ids: Array.isArray(details.identification_tool) 
+                    ? details.identification_tool.filter(i => i && i.id).map(i => i.id) 
+                    : [],
+                owner_id: details.risk_owner?.id || details.owner_id || '',
+                note: details.risk_note || ' ', // Default to space if empty
+                link_area_id: details.risk_area?.id || details.link_area_id || '',
+                risk_trigger_ids: Array.isArray(details.risk_triggers) 
+                    ? details.risk_triggers.filter(t => t && t.id).map(t => t.id) 
+                    : [],
+                linked_resources_ids: Array.isArray(details.linked_resources) 
+                    ? details.linked_resources.filter(l => l && l.id).map(l => l.id) 
+                    : []
+            };
+            
+            // Log the transformed data for debugging
+            console.log('Transformed form data:', newFormData);
+            
+            setFormData(newFormData);
         } else if (riskIdentificationQuery.error) {
             console.error('Error loading risk identification:', riskIdentificationQuery.error);
             dispatchMessage('error', 'Failed to load risk details. Please try again.');
@@ -163,14 +237,32 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
         if (!error && !riskID) {
             // will only navigate to next step if risk was just added and didn't exist before
             const riskID = data.data[0].risk_id;
+            
+            // Save this new risk ID to session storage
+            sessionStorage.setItem('current_risk_id', riskID);
+            
+            // Update parent component with the new risk ID if callback exists
+            if (onRiskIdChange) {
+                onRiskIdChange(riskID);
+            }
+            
             navigate(`/risks/register/analysis?id=${riskID}`);
         }
     }
 
     function handleChange(e) {
-        setFormData({
-            ...formData, [e.target.name]: e.target.value
-        })
+        // For note field, ensure it's never an empty string
+        if (e.target.name === 'note' && e.target.value === '') {
+            setFormData({
+                ...formData, 
+                [e.target.name]: ' ' // Use a space instead of empty string
+            });
+        } else {
+            setFormData({
+                ...formData, 
+                [e.target.name]: e.target.value
+            });
+        }
     }
 
     function handleNextClicked() {
@@ -186,7 +278,7 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
                 "tags": formData.tags,
                 "identification_tool_ids": formData.identification_tool_ids.map(id => Number(id)),
                 "owner_id": Number(formData.owner_id),
-                "note": formData.note,
+                "note": formData.note || " ", // Ensure note is never empty by using a space as default
                 "link_area_id": Number(formData.link_area_id),
                 "risk_trigger_ids": formData.risk_trigger_ids.map(id => Number(id)),
                 "linked_resources_ids": formData.linked_resources_ids.map(id => Number(id))
@@ -194,12 +286,22 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
             updateRisk({data: payload});
         } else {
             // Adding a new risk
-            addRisk({data: formData});
+            // Create a copy of formData with note defaulting to a space character if empty
+            const dataToSend = {
+                ...formData,
+                note: formData.note || " " // Ensure note is never empty by using a space as default
+            };
+            addRisk({data: dataToSend});
         }
     }
 
     function handleSaveToDraft() {
-        (!!riskID ? saveExistingRiskToDraft : saveNewRiskToDraft)({data: formData});
+        // Create a copy of formData with note defaulting to a space character if empty
+        const dataToSend = {
+            ...formData,
+            note: formData.note || " " // Ensure note is never empty by using a space as default
+        };
+        (!!riskID ? saveExistingRiskToDraft : saveNewRiskToDraft)({data: dataToSend});
     }
 
     const isLoading = (riskID && riskIdentificationQuery.isLoading) || identificationToolsQuery.isLoading || linkedResourcesQuery.isLoading || riskTriggersQuery.isLoading || riskCategoriesQuery.isLoading || riskClassesQuery.isLoading || riskAreasQuery.isLoading || usersQuery.isLoading || (riskID && targetRiskRatingQuery.isLoading) || (formData.category_id && targetRiskRatingByCategoryQuery.isLoading);
@@ -361,7 +463,6 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
                                                 fromCategoryQuery: targetRiskRatingByCategoryQuery.data
                                             })}
                                             <RiskRating riskRating={targetRiskRating} />
-                                            <span className="text-xs text-gray-500">Based on category risk appetite</span>
                                         </div>
                                     </div>
                                 </div>
@@ -386,7 +487,7 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
                         <div className='w-1/2'>
                             <OwnerDropdown owners={users} selected={formData.owner_id} onChange={handleChange} />
                         </div>
-                        <CKEField {...{name: 'note', label: 'Note', value: formData.note, onChange: handleChange}} />
+                        <CKEField {...{name: 'note', label: 'Note (optional)', value: formData.note, onChange: handleChange}} />
                     </div>
                 </div>
                 <div className='flex flex-col gap-6'>

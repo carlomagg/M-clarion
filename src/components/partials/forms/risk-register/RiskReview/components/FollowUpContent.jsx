@@ -26,6 +26,35 @@ export default function FollowUpHistoryContent({followUps}) {
     // Force a refresh of followUps data
     const queryClient = useQueryClient();
     
+    // Listen for follow-up-updated events
+    useEffect(() => {
+        const handleFollowUpUpdated = (event) => {
+            console.log('Follow-up-updated event received in FollowUpHistoryContent', event);
+            // Check if this event is for the current risk ID
+            if (event && event.detail && event.detail.riskID) {
+                // Only refresh if this is for our risk ID or no risk ID is specified
+                if (!event.detail.riskID || String(event.detail.riskID) === String(riskID)) {
+                    console.log('Refreshing follow-ups for risk ID:', riskID);
+                    setRefreshTrigger(prev => prev + 1);
+                }
+            } else {
+                // If no detail is provided, refresh anyway
+                setRefreshTrigger(prev => prev + 1);
+            }
+        };
+        
+        // Listen for the follow-up-updated custom event
+        window.addEventListener('follow-up-updated', handleFollowUpUpdated);
+        
+        // Also listen for the follow-up-refresh event (for backward compatibility)
+        document.addEventListener('follow-up-refresh', handleFollowUpUpdated);
+        
+        return () => {
+            window.removeEventListener('follow-up-updated', handleFollowUpUpdated);
+            document.removeEventListener('follow-up-refresh', handleFollowUpUpdated);
+        };
+    }, [riskID]);
+    
     // Refresh follow-ups data whenever this component is mounted or refreshTrigger changes
     useEffect(() => {
         const refreshData = async () => {
@@ -99,6 +128,10 @@ function FollowUpForm({mode, riskID, onRemoveForm, followUp = null, inModalView 
         user_ids: [],
     });
     const [selectedUsers, setSelectedUsers] = useState([]);
+    // Track if submission was successful to reset form
+    const [wasSuccessful, setWasSuccessful] = useState(false);
+    // Add a refresh trigger state to force re-rendering of follow-up history
+    const [refreshFollowUps, setRefreshFollowUps] = useState(0);
 
     useEffect(() => {
         setFormData(() => ({
@@ -119,6 +152,18 @@ function FollowUpForm({mode, riskID, onRemoveForm, followUp = null, inModalView 
         }
     }, [mode, followUp]);
 
+    // Reset form after successful submission
+    useEffect(() => {
+        if (wasSuccessful && mode === 'add') {
+            setFormData({
+                note: '',
+                user_ids: [],
+            });
+            setSelectedUsers([]);
+            setWasSuccessful(false);
+        }
+    }, [wasSuccessful, mode]);
+
     // users query
     const {isLoading, error, data: fetchedUsers} = useQuery(usersOptions());
 
@@ -135,21 +180,88 @@ function FollowUpForm({mode, riskID, onRemoveForm, followUp = null, inModalView 
 
     async function onSuccess(data) {
         console.log('Follow-up added/updated successfully:', data);
-        await queryClient.invalidateQueries({queryKey: ['risks', riskID, 'follow-ups']});
         
-        // Force an immediate refetch and log the result
-        const result = await queryClient.refetchQueries({queryKey: ['risks', riskID, 'follow-ups'], force: true});
-        console.log('Refetched follow-ups data:', result);
-        
-        dispatchMessage('success', data.message);
+        try {
+            // Forcefully invalidate and refetch the follow-ups data
+            await queryClient.invalidateQueries({queryKey: ['risks', riskID, 'follow-ups']});
+            
+            // Get current date and time for manual addition to the history
+            const now = new Date();
+            const date = now.toLocaleDateString();
+            const time = now.toLocaleTimeString();
+            
+            // Force a refetch with specific options to ensure data is updated
+            await queryClient.refetchQueries({
+                queryKey: ['risks', riskID, 'follow-ups'],
+                force: true,
+                throwOnError: true
+            });
+            
+            // If we're in dialog mode, directly add the new follow-up to the history
+            if (inModalView) {
+                // Get current user info
+                const userData = await queryClient.fetchQuery({
+                    queryKey: ['currentUser'],
+                    queryFn: () => ({ name: 'Current User' }), // Replace with actual user fetch if available
+                });
+                
+                // Create a new follow-up record manually to add to the UI immediately
+                const newFollowUp = {
+                    id: Date.now(), // Temporary ID
+                    date,
+                    time,
+                    'follow up note': formData.note,
+                    name: userData.name,
+                    'responder names': selectedUsers
+                };
+                
+                // Trigger a refresh of the parent component with the new data
+                window.dispatchEvent(new CustomEvent('follow-up-added', { 
+                    detail: { followUp: newFollowUp, riskID } 
+                }));
+                
+                // For immediate refresh, also dispatch the follow-up-updated event
+                window.dispatchEvent(new CustomEvent('follow-up-updated', { 
+                    detail: { riskID } 
+                }));
+            }
+            
+            // Force parent components to refresh
+            document.dispatchEvent(new Event('follow-up-refresh'));
+            
+            // Increment the refresh trigger to force re-rendering
+            setRefreshFollowUps(prev => prev + 1);
+            
+            dispatchMessage('success', data.message);
+            
+            // Set flag to reset form
+            if (mode === 'add') {
+                setWasSuccessful(true);
+            }
+        } catch (err) {
+            console.error('Error refreshing follow-ups data:', err);
+            dispatchMessage('failed', 'Failed to refresh follow-ups list');
+        }
     }
     function onError(error) {
         dispatchMessage('failed', error.response.data.message);
     }
     function onSettled(data, error) {
         if (!error) {
-            mode === 'add' && onRemoveForm();
-            mode === 'edit' && removeModal();
+            // Don't automatically close the form or modal on success
+            // Allow user to close it manually
+            // mode === 'add' && onRemoveForm();
+            // mode === 'edit' && removeModal();
+            
+            // Instead of closing, trigger a refresh of the parent component with the updated data
+            if (inModalView) {
+                // Force a refresh of the parent component
+                document.dispatchEvent(new Event('follow-up-refresh'));
+                // Notify any listeners that a follow-up was added/updated
+                window.dispatchEvent(new CustomEvent('follow-up-updated', { 
+                    detail: { riskID } 
+                }));
+            }
         }
     }
 
@@ -165,8 +277,14 @@ function FollowUpForm({mode, riskID, onRemoveForm, followUp = null, inModalView 
     function handleSaveClicked() {
         // Show loading indicator
         dispatchMessage('processing', 'Adding risk follow-up...');
-        if (mode === 'add') addRiskFollowUp({data: formData});
-        else if (mode === 'edit') updateRiskFollowUp({id: followUp.id, data: {...formData, risk: riskID}});
+        if (mode === 'add') {
+            addRiskFollowUp({data: formData});
+            // Note: we don't call onRemoveForm() here to keep the form open
+        }
+        else if (mode === 'edit') {
+            updateRiskFollowUp({id: followUp.id, data: {...formData, risk: riskID}});
+            // Note: modal closing is handled in onSettled
+        }
     }
 
     if (isLoading) return <div>Loading</div>
@@ -195,16 +313,75 @@ export function FollowUpDialog({onRemove}) {
     const [data, setData] = useState({
         response: ''
     });
+    // Track if response was successfully submitted
+    const [responseSubmitted, setResponseSubmitted] = useState(false);
+    // Add a refresh trigger state to force re-rendering of follow-up history
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    // Local state to store follow-ups data for immediate updates
+    const [localFollowUps, setLocalFollowUps] = useState([]);
 
     const [riskID, setRiskID] = useState(context.riskId);
     const {mode, setContext, followUp = null} = context;
 
     // query
-    const {isLoading, error, data: followUps} = useQuery(riskFollowUpsOptions(String(riskID), {enabled: mode !== 'view-response'}));
+    const {isLoading, error, data: followUps, refetch} = useQuery(riskFollowUpsOptions(String(riskID), {
+        enabled: mode !== 'view-response',
+        refetchOnWindowFocus: true,
+        // Force the query to refetch when refreshTrigger changes
+        refetchInterval: refreshTrigger > 0 ? 0 : false,
+    }));
+
+    // Listen for follow-up-updated events
+    useEffect(() => {
+        const handleFollowUpUpdated = (event) => {
+            console.log('Follow-up-updated event received in FollowUpDialog', event);
+            // Check if this event is for the current risk ID
+            if (event && event.detail && event.detail.riskID) {
+                // Only refresh if this is for our risk ID or no risk ID is specified
+                if (!event.detail.riskID || String(event.detail.riskID) === String(riskID)) {
+                    console.log('Refreshing follow-ups for risk ID:', riskID);
+                    setRefreshTrigger(prev => prev + 1);
+                    // Force an immediate refetch
+                    refetch();
+                }
+            } else {
+                // If no detail is provided, refresh anyway
+                setRefreshTrigger(prev => prev + 1);
+                // Force an immediate refetch
+                refetch();
+            }
+        };
+        
+        // Listen for the follow-up-updated custom event
+        window.addEventListener('follow-up-updated', handleFollowUpUpdated);
+        
+        // Also listen for the follow-up-refresh event (for backward compatibility)
+        document.addEventListener('follow-up-refresh', handleFollowUpUpdated);
+        
+        return () => {
+            window.removeEventListener('follow-up-updated', handleFollowUpUpdated);
+            document.removeEventListener('follow-up-refresh', handleFollowUpUpdated);
+        };
+    }, [refetch, riskID]);
 
     // mutations
     const {isPending: isAddingResponse, mutate: addResponse} = useAddFollowUpResponse({onSuccess, onError, onSettled});
     const {isPending: isDeletingFollowUp, mutate: deleteFollowUp} = useDeleteRiskFollowUp({onSuccess, onError});
+
+    // Reset response field after successful submission
+    useEffect(() => {
+        if (responseSubmitted) {
+            setData({response: ''});
+            setResponseSubmitted(false);
+        }
+    }, [responseSubmitted]);
+
+    // Force refetch when refreshTrigger changes
+    useEffect(() => {
+        if (refreshTrigger > 0) {
+            refetch();
+        }
+    }, [refreshTrigger, refetch]);
 
     const queryClient = useQueryClient();
     const dispatchMessage = useDispatchMessage();
@@ -215,21 +392,37 @@ export function FollowUpDialog({onRemove}) {
 
     async function onSuccess(data) {
         console.log('Follow-up added/updated successfully:', data);
+        
+        // Forcefully invalidate the cache first
         await queryClient.invalidateQueries({queryKey: ['risks', String(riskID), 'follow-ups']});
         
-        // Force an immediate refetch and log the result
-        const result = await queryClient.refetchQueries({queryKey: ['risks', String(riskID), 'follow-ups'], force: true});
+        // Force a refetch with specific options to ensure data is updated
+        const result = await queryClient.refetchQueries({
+            queryKey: ['risks', String(riskID), 'follow-ups'], 
+            force: true,
+            throwOnError: true
+        });
         console.log('Refetched follow-ups data:', result);
         
+        // Increment the trigger to force a refetch
+        setRefreshTrigger(prev => prev + 1);
+        
         dispatchMessage('success', data.message);
+        
+        // Set flag to reset response field if we added a response
+        if (isAddingResponse) {
+            setResponseSubmitted(true);
+        }
     }
     function onError(error) {
         dispatchMessage('failed', error.response.data.message);
     }
     function onSettled(data, error) {
         if (!error) {
-            mode === 'add' && onRemove();
-            mode === 'edit' && onRemove();
+            // Don't automatically close the dialog on success
+            // Allow user to close it manually
+            // mode === 'add' && onRemove();
+            // mode === 'edit' && onRemove();
         }
     }
 
@@ -313,9 +506,13 @@ export function FollowUpDialog({onRemove}) {
 function FollowUpHistoryTable({history, createRecordOptions}) {
     console.log('FollowUpHistoryTable rendered with history:', history);
     
+    // Generate a unique key for the table based on history content and current timestamp
+    // This will force React to re-render the table completely on every render
+    const tableKey = `follow-up-table-${history ? history.length : 0}-${Date.now()}`;
+    
     return (
         <div className='mt-3 overflow-auto p-6 flex flex-col gap-6 rounded-lg border border-[#CCC] text-[#3B3B3B] text-sm'>
-            <div className="w-[1024px]">
+            <div className="w-[1024px]" key={tableKey}>
                 <header className='px-4 border-b border-b-[#B7B7B7] flex gap-4'>
                     <span className='py-4 flex-[1_0]'>Date</span>
                     <span className='py-4 flex-[1_0]'>Time</span>
@@ -327,20 +524,18 @@ function FollowUpHistoryTable({history, createRecordOptions}) {
                 {history && history.length > 0 ? (
                     <ul className='flex flex-col'>
                         {
-                            history.map((record, i) => {
-                                return (
-                                    <li key={record.id || i} className='px-4 flex gap-4 items-center'>
-                                        <span className='py-4 flex-[1_0]'>{record.date}</span>
-                                        <span className='py-4 flex-[1_0]'>{record.time}</span>
-                                        <span className='py-4 flex-[3_0]'>{record['follow up note']}</span>
-                                        <span className='py-4 flex-[1_0]'>{record.name}</span>
-                                        <span className='py-4 flex-[2_0]'>{record['responder names'].map(r => r.name).join(', ')}</span>
-                                        <span className='py-4 flex-[.5_0]'>
-                                            <OptionsDropdown options={createRecordOptions(record)} />
-                                        </span>
-                                    </li>
-                                );
-                            })
+                            history.map((record, i) => (
+                                <li key={`${record.id || i}-${Date.now()}`} className='px-4 flex gap-4 items-center'>
+                                    <span className='py-4 flex-[1_0]'>{record.date}</span>
+                                    <span className='py-4 flex-[1_0]'>{record.time}</span>
+                                    <span className='py-4 flex-[3_0]'>{record['follow up note']}</span>
+                                    <span className='py-4 flex-[1_0]'>{record.name}</span>
+                                    <span className='py-4 flex-[2_0]'>{record['responder names'].map(r => r.name).join(', ')}</span>
+                                    <span className='py-4 flex-[.5_0]'>
+                                        <OptionsDropdown options={createRecordOptions(record)} />
+                                    </span>
+                                </li>
+                            ))
                         }
                     </ul>
                 ) : (

@@ -26,13 +26,46 @@ const SHOW_DEBUG_INFO = false;
 // ProcessService is already exported as a singleton instance, no need to initialize it
 // const processService = new ProcessService(); // <-- This line was causing the error
 
-function RiskReview({mode}) {
+function RiskReview({mode, currentRiskId, onRiskIdChange, readOnly = false, approvalMode = false}) {
 
     const [searchParams, setSearchParams] = useSearchParams();
     const params = useParams();
-    const riskID = mode === 'standalone' ? params.id : searchParams.get('id');
+    // Use currentRiskId from props if available, otherwise fallback to URL params
+    const riskID = mode === 'standalone' ? params.id : (currentRiskId || searchParams.get('id'));
+    
+    // Update the parent component with the current risk ID when it becomes available
+    useEffect(() => {
+        if (riskID && onRiskIdChange) {
+            onRiskIdChange(riskID);
+        }
+    }, [riskID, onRiskIdChange]);
+    
     const navigate = useNavigate();
-    const [selectedApproverId, setSelectedApproverId] = useState('');
+    
+    // Initialize from sessionStorage if available for approval data
+    const [selectedApproverId, setSelectedApproverId] = useState(() => {
+        const savedData = sessionStorage.getItem(`risk_review_${riskID}`);
+        if (savedData && riskID) {
+            try {
+                const parsedData = JSON.parse(savedData);
+                console.log('Loaded saved review data from session storage:', parsedData);
+                return parsedData.selectedApproverId || '';
+            } catch (e) {
+                console.error('Error parsing saved review data:', e);
+            }
+        }
+        return '';
+    });
+    
+    // Save review data to sessionStorage whenever it changes
+    useEffect(() => {
+        if (riskID) {
+            sessionStorage.setItem(`risk_review_${riskID}`, JSON.stringify({
+                selectedApproverId
+            }));
+        }
+    }, [selectedApproverId, riskID]);
+    
     const [canApproveRisk, setCanApproveRisk] = useState(false);
     const [isRetrying, setIsRetrying] = useState(false);
     const [treatmentPlanId, setTreatmentPlanId] = useState(null);
@@ -306,42 +339,112 @@ function RiskReview({mode}) {
         );
     }
 
+    // Get analysis data from API or sessionStorage
+    function getAnalysisData() {
+        console.log('Getting analysis data for review with risk ID:', riskID);
+        
+        // First try to get data from sessionStorage
+        // This is the most reliable source for new risks
+        try {
+            const savedData = sessionStorage.getItem(`risk_analysis_${riskID}`);
+            console.log('Session storage data available?', savedData ? 'Yes' : 'No');
+            
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                console.log('Using session storage data for analysis:', parsedData);
+                return parsedData;
+            }
+        } catch (e) {
+            console.error('Error retrieving analysis data from sessionStorage:', e);
+        }
+        
+        // Fallback to API data if sessionStorage is empty
+        if (riskAnalysisQuery.data && Object.keys(riskAnalysisQuery.data).length > 0) {
+            console.log('Using API data for analysis:', riskAnalysisQuery.data);
+            return riskAnalysisQuery.data;
+        }
+        
+        // Return empty object if nothing found
+        console.log('No analysis data found, returning empty object');
+        return {};
+    }
+    
+    // Add a function to get treatment plan data from API or sessionStorage
+    function getTreatmentPlanData() {
+        // If API data exists, use that first
+        if (treatmentPlanQuery.data && Object.keys(treatmentPlanQuery.data).length > 0) {
+            const data = treatmentPlanQuery.data;
+            
+            // Log the retrieved data for debugging
+            console.log('Treatment plan data from API:', data);
+            
+            // Check if the data has status information and standardize it
+            if (!data.status && data.risk_approval_status) {
+                // If status is missing but risk_approval_status exists, create a status object
+                data.status = {
+                    status: data.risk_approval_status,
+                    id: data.risk_approval_status_id
+                };
+                console.log('Created status object from risk_approval_status:', data.status);
+            }
+            
+            return data;
+        }
+        
+        // Otherwise try to get from sessionStorage
+        try {
+            const savedData = sessionStorage.getItem(`risk_treatment_${riskID}`);
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                console.log('Retrieved treatment plan data from sessionStorage:', parsedData);
+                
+                // Check if the data has status information and standardize it
+                if (parsedData && !parsedData.status && parsedData.risk_approval_status) {
+                    // If status is missing but risk_approval_status exists, create a status object
+                    parsedData.status = {
+                        status: parsedData.risk_approval_status,
+                        id: parsedData.risk_approval_status_id
+                    };
+                    console.log('Created status object from risk_approval_status in sessionStorage data:', parsedData.status);
+                }
+                
+                return parsedData;
+            }
+        } catch (e) {
+            console.error('Error retrieving treatment plan data from sessionStorage:', e);
+        }
+        
+        // Return empty object if nothing found
+        return {};
+    }
 
+    // Update the variable declarations to use the new functions
     const likelihoodScores = likelihoodScoresQuery.data;
     const impactScores = impactScoresQuery.data;
     const riskIndentification = riskIdentificationQuery.data;
-    const riskAnalysis = riskAnalysisQuery.data;
-    const treatmentPlan = treatmentPlanQuery.data;
+    const riskAnalysis = getAnalysisData();
+    const treatmentPlan = getTreatmentPlanData();
     const approvalStatuses = approvalStatusesQuery.data;
     const followUps = followUpsQuery.data;
     const riskEvents = riskEventsQuery.data;
-    const users = usersQuery.data.map(u => ({id: u.user_id, text: (!u.firstname || !u.lastname) ? u.email : `${u.firstname} ${u.lastname}`}));
+    const users = usersQuery.data?.map(u => ({id: u.user_id, text: (!u.firstname || !u.lastname) ? u.email : `${u.firstname} ${u.lastname}`})) || [];
 
-    // Log treatment plan data to help diagnose issues
-    if (SHOW_DEBUG_INFO) {
-        console.log('RiskReview - Treatment plan data:', treatmentPlan);
-        console.log('Using treatment plan ID:', treatmentPlanId || riskID);
-        console.log('Treatment plan structure check:', {
-            hasRiskResponse: Boolean(treatmentPlan?.risk_response),
-            hasRiskResponseName: Boolean(treatmentPlan?.risk_response?.name),
-            hasControlFamilyType: Boolean(treatmentPlan?.control_family_type),
-            hasControlFamilyTypeName: Boolean(treatmentPlan?.control_family_type?.name),
-            hasStatus: Boolean(treatmentPlan?.status),
-            hasStatusStatus: Boolean(treatmentPlan?.status?.status)
-        });
-        
-        // Add more logging specifically for control_details structure to diagnose issues
-        console.log('RiskReview - control_details check:', {
-            hasControlDetails: Boolean(treatmentPlan?.control_details),
-            controlDetailsKeys: treatmentPlan?.control_details ? Object.keys(treatmentPlan.control_details) : [],
-            startDate: treatmentPlan?.control_details?.start_date || treatmentPlan?.start_date || null,
-            deadline: treatmentPlan?.control_details?.deadline || treatmentPlan?.deadline || null,
-            contingencyPlan: treatmentPlan?.control_details?.contingency_plan || treatmentPlan?.contingency_plan || null
-        });
-    }
+    // Always log analysis and treatment plan data for debugging
+    console.log('RiskReview - Risk Analysis data:', riskAnalysis);
+    console.log('RiskReview - Analysis data keys:', Object.keys(riskAnalysis));
+    console.log('RiskReview - Inherent scores:', {
+        'inherent_likelihood_score': riskAnalysis.inherent_likelihood_score,
+        'inherent_impact_score': riskAnalysis.inherent_impact_score,
+        'inherent_risk_likelihood_score': riskAnalysis.inherent_risk_likelihood_score,
+        'inherent_risk_impact_score': riskAnalysis.inherent_risk_impact_score,
+    });
+    console.log('RiskReview - Treatment Plan data:', treatmentPlan);
 
     // Check if treatment plan data appears to be missing or incomplete
     const isTreatmentPlanIncomplete = !treatmentPlan || Object.keys(treatmentPlan).length === 0 || !treatmentPlan.risk_response;
+
+    // Check if we should show edit buttons based on readOnly prop
+    const showEditButtons = !readOnly && !approvalMode;
 
     return (
         <div className='flex flex-col gap-6'>
@@ -387,13 +490,32 @@ function RiskReview({mode}) {
                 </div>
             )}
             <div className='flex flex-col gap-6'>
-                <Section heading="Risk Details" button={{onClick: () => handleEditClicked("identification"), jsx: 'Edit'}}>
+                <Section heading="Risk Details" button={showEditButtons ? {onClick: () => handleEditClicked("identification"), jsx: 'Edit'} : null}>
                     <DetailsContent details={riskIndentification} />
                 </Section>
-                <Section heading="Risk Analysis" button={{onClick: () => handleEditClicked("analysis"), jsx: 'Edit'}}>
-                    <AnalysisContent riskAnalysis={riskAnalysis} likelihoodScores={likelihoodScores} impactScores={impactScores} />
+                <Section heading="Risk Analysis" button={showEditButtons ? {onClick: () => handleEditClicked("analysis"), jsx: 'Edit'} : null}>
+                    {/* Debug data passed to AnalysisContent */}
+                    {console.log("Passing to AnalysisContent:", {
+                        hasData: riskAnalysis && Object.keys(riskAnalysis).length > 0,
+                        data: riskAnalysis,
+                        likelihoodScores: likelihoodScores,
+                        impactScores: impactScores
+                    })}
+                    
+                    {/* Show a debugging message for development if needed */}
+                    {(riskAnalysis === null || Object.keys(riskAnalysis).length === 0) && (
+                        <div className="text-amber-600 text-sm mb-2">
+                            No risk analysis data found. Try refreshing or returning to the analysis step.
+                        </div>
+                    )}
+                    
+                    <AnalysisContent 
+                        riskAnalysis={riskAnalysis} 
+                        likelihoodScores={likelihoodScores} 
+                        impactScores={impactScores} 
+                    />
                 </Section>
-                <Section heading="Control Details" button={{onClick: () => handleEditClicked("treatment-plan"), jsx: 'Edit'}}>
+                <Section heading="Control Details" button={showEditButtons ? {onClick: () => handleEditClicked("treatment-plan"), jsx: 'Edit'} : null}>
                     {/* Log the treatment plan data for debugging */}
                     {console.log("Rendering ControlDetailsContent with data:", treatmentPlan)}
                     <ControlDetailsContent treatmentPlan={treatmentPlan} />
@@ -417,13 +539,51 @@ function RiskReview({mode}) {
                         <Section heading="Follow Up History" >
                             <FollowUpHistoryContent followUps={followUps} />
                         </Section>
+                        {/* Add debugging for approval data */}
+                        {console.log('Debug - Treatment Plan Status Object:', treatmentPlan?.status)}
+                        {console.log('Debug - Risk Approval Status:', treatmentPlan?.risk_approval_status)}
+                        {console.log('Debug - Risk Approval Status ID:', treatmentPlan?.risk_approval_status_id)}
+                        {console.log('Debug - Current Status being passed to ApprovalContent:', treatmentPlan?.status || 
+                            (treatmentPlan?.risk_approval_status ? 
+                                {status: treatmentPlan.risk_approval_status, id: treatmentPlan.risk_approval_status_id} : 
+                                {}))}
+                        {console.log('Debug - Available Approval Statuses:', approvalStatuses)}
                         <Section heading="Approval">
                             <ApprovalContent 
-                                canApproveRisk={canApproveRisk} 
-                                currentStatus={treatmentPlan?.status || {}} 
+                                canApproveRisk={canApproveRisk || approvalMode} 
+                                currentStatus={treatmentPlan?.status || 
+                                    (treatmentPlan?.risk_approval_status ? 
+                                        {status: treatmentPlan.risk_approval_status, id: treatmentPlan.risk_approval_status_id} : 
+                                        {})} 
                                 approvalStatuses={approvalStatuses} 
                                 users={users} 
                             />
+                            {/* Debug information for approval data */}
+                            {SHOW_DEBUG_INFO && (
+                                <div className="mt-4 p-4 border border-gray-300 rounded bg-gray-50">
+                                    <h5 className="text-sm font-bold mb-2">Debug Info - Approval Data</h5>
+                                    <div className="text-xs font-mono whitespace-pre-wrap">
+                                        <p><strong>Treatment Plan Status:</strong> {JSON.stringify(treatmentPlan?.status || 'undefined')}</p>
+                                        <p><strong>Risk Approval Status:</strong> {treatmentPlan?.risk_approval_status || 'undefined'}</p>
+                                        <p><strong>Risk Approval Status ID:</strong> {treatmentPlan?.risk_approval_status_id || 'undefined'}</p>
+                                        <p><strong>Current Status Object:</strong> {JSON.stringify(treatmentPlan?.status || 
+                                            (treatmentPlan?.risk_approval_status ? 
+                                                {status: treatmentPlan.risk_approval_status, id: treatmentPlan.risk_approval_status_id} : 
+                                                {}), null, 2)}</p>
+                                        <p><strong>Available Approval Statuses:</strong> {approvalStatuses ? approvalStatuses.length : 0} items</p>
+                                        {approvalStatuses && approvalStatuses.length > 0 && (
+                                            <div>
+                                                <p>Status Options:</p>
+                                                <ul>
+                                                    {approvalStatuses.map((status, idx) => (
+                                                        <li key={idx}>{status.id}: {status.status || status.name}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </Section>
                     </>
                 }

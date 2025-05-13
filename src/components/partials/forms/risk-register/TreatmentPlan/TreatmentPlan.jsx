@@ -20,10 +20,18 @@ import ContingencyPlanField from './components/ContingencyPlanField';
 import ResourcesRequirementField from './components/ResourcesRequirement';
 import axios from 'axios';
 
-function TreatmentPlan({mode, riskName = ''}) {
+function TreatmentPlan({mode, riskName = '', currentRiskId, onRiskIdChange}) {
     const [searchParams, setSearchParams] = useSearchParams();
     const params = useParams();
-    const riskID = mode === 'update' ? params.id : searchParams.get('id');
+    // Use currentRiskId from props if available, otherwise fallback to URL params
+    const riskID = mode === 'update' ? params.id : (currentRiskId || searchParams.get('id'));
+    
+    // Update the parent component with the current risk ID if needed
+    useEffect(() => {
+        if (riskID && onRiskIdChange) {
+            onRiskIdChange(riskID);
+        }
+    }, [riskID, onRiskIdChange]);
     
     // Check if a treatment plan ID is directly provided in the URL
     const directTreatmentPlanId = searchParams.get('treatment_plan_id') || searchParams.get('treatmentPlanId');
@@ -78,22 +86,55 @@ function TreatmentPlan({mode, riskName = ''}) {
         }
     }, [directTreatmentPlanId, queryClient, riskID]);
 
-    const [formData, setFormData] = useState({
-        response_id: '',
-        control_family_type_id: '',
-        control_effectiveness_id: '',
-        recommended_control: '',
-        contingency_plan: '',
-        resources_requirement: '',
-        start_date: '',
-        deadline: '',
-        action_plan: [],
-        residual_risk_likelihood: '',
-        residual_risk_impact: '',
-        residual_risk_rating: '',
-        status: '',
-        risk_treatment_id: directTreatmentPlanId || '',  // Use direct treatment plan ID if available
+    // Initialize form data from sessionStorage if available
+    const [formData, setFormData] = useState(() => {
+        const savedData = sessionStorage.getItem(`risk_treatment_${riskID}`);
+        if (savedData && riskID) {
+            try {
+                const parsedData = JSON.parse(savedData);
+                console.log('Loaded saved treatment plan data from session storage:', parsedData);
+                return parsedData;
+            } catch (e) {
+                console.error('Error parsing saved treatment plan data:', e);
+            }
+        }
+        
+        // Default form data if nothing is saved
+        return {
+            response_id: '',
+            control_family_type_id: '',
+            control_effectiveness_id: '',
+            recommended_control: '',
+            contingency_plan: '',
+            resources_requirement: '',
+            start_date: '',
+            deadline: '',
+            action_plan: [],
+            residual_risk_likelihood: '',
+            residual_risk_impact: '',
+            residual_risk_rating: '',
+            status: '',
+            risk_treatment_id: directTreatmentPlanId || '',  // Use direct treatment plan ID if available
+        };
     });
+    
+    // Save form data to sessionStorage whenever it changes
+    useEffect(() => {
+        if (riskID) {
+            // Store with consistent field names
+            const storageData = {
+                ...formData,
+                // Ensure both field name variations are stored for compatibility
+                recommended_control: formData.recommended_control,
+                contingency_plan: formData.contingency_plan,
+                contigency_plan: formData.contingency_plan, // Include misspelled version used by API
+                resources_requirement: formData.resources_requirement,
+                resource_required: formData.resources_requirement // Include API version
+            };
+            console.log('Saving treatment plan data to sessionStorage:', storageData);
+            sessionStorage.setItem(`risk_treatment_${riskID}`, JSON.stringify(storageData));
+        }
+    }, [formData, riskID]);
 
     // Add validation for riskID
     useEffect(() => {
@@ -529,51 +570,17 @@ function TreatmentPlan({mode, riskName = ''}) {
         }
     }
     function onSettled(data, error) {
-        // set newly created risk id and proceed to next step if successful
         if (!error) {
-            // Add a short delay before navigation to allow success message to display
-            setTimeout(async () => {
-                try {
-                    // First check if the response data contains a treatment plan ID
-                    console.log('Complete API response:', data);
-                    
-                    // Look for the treatment plan ID in various possible places in the response
-                    let treatmentPlanId = null;
-                    if (data?.treatmentPlanId) {
-                        treatmentPlanId = data.treatmentPlanId;
-                    } else if (data?.risk_treatment_id) {
-                        treatmentPlanId = data.risk_treatment_id;
-                    } else if (data?.id) {
-                        treatmentPlanId = data.id;
-                    }
-                    
-                    console.log('Extracted treatment plan ID:', treatmentPlanId);
-                    console.log('Risk ID:', riskID);
-                    
-                    // If we found a treatment plan ID, store it in the query cache for future use
-                    if (treatmentPlanId && treatmentPlanId !== riskID) {
-                        queryClient.setQueryData(['risks', riskID, 'treatment-plan-id'], treatmentPlanId);
-                        console.log(`Cached treatment plan ID ${treatmentPlanId} for risk ID ${riskID}`);
-                    }
-                    
-                    // Force invalidate all relevant queries to ensure fresh data
-                    await queryClient.invalidateQueries(['risks', riskID, 'treatment-plans'], { force: true });
-                    await queryClient.invalidateQueries(['risks', riskID, 'identification'], { force: true });
-                    await queryClient.invalidateQueries(['risks', riskID, 'analysis'], { force: true });
-                    
-                    console.log('Navigating to review page with risk ID:', riskID);
-                    
-                    // Always navigate to the review page - treatment plan is saved even if verification fails
-                    navigate(`/risks/register/review?id=${riskID}`);
-                    
-                } catch (error) {
-                    console.error('Navigation error:', error);
-                    
-                    // If there's any error during the process, still navigate to the review page as a fallback
-                    dispatchMessage('warning', 'Treatment plan was saved but there may be issues loading all data. Proceeding to review anyway.');
-                    navigate(`/risks/register/review?id=${riskID}`);
-                }
-            }, 1000); // Reduced to 1 second delay for faster feedback
+            // Show a success message
+            dispatchMessage('success', data.message || 'Treatment plan saved successfully.');
+            
+            // Ensure the riskID is in sessionStorage for consistency
+            if (riskID) {
+                sessionStorage.setItem('current_risk_id', riskID);
+            }
+            
+            // Check if we should navigate to the next step
+            navigate(`/risks/register/review?id=${riskID}`);
         }
     }
 
@@ -730,16 +737,22 @@ function TreatmentPlan({mode, riskName = ''}) {
         
         // Format dates (if they exist) from MM-DD-YYYY to YYYY-MM-DD for API
         if (formattedData.start_date) {
-            const [month, day, year] = formattedData.start_date.split('-');
-            if (month && day && year) {
-                formattedData.start_date = [year, month, day].join('-');
+            // Check if the date is already in YYYY-MM-DD format (to avoid double conversion)
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedData.start_date)) {
+                const [month, day, year] = formattedData.start_date.split('-');
+                if (month && day && year) {
+                    formattedData.start_date = [year, month, day].join('-');
+                }
             }
         }
         
         if (formattedData.deadline) {
-            const [month, day, year] = formattedData.deadline.split('-');
-            if (month && day && year) {
-                formattedData.deadline = [year, month, day].join('-');
+            // Check if the date is already in YYYY-MM-DD format (to avoid double conversion)
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedData.deadline)) {
+                const [month, day, year] = formattedData.deadline.split('-');
+                if (month && day && year) {
+                    formattedData.deadline = [year, month, day].join('-');
+                }
             }
         }
         
@@ -749,9 +762,12 @@ function TreatmentPlan({mode, riskName = ''}) {
                 const newPlan = { ...plan };
                 
                 if (newPlan.due_date) {
-                    const [month, day, year] = newPlan.due_date.split('-');
-                    if (month && day && year) {
-                        newPlan.due_date = [year, month, day].join('-');
+                    // Check if the date is already in YYYY-MM-DD format
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(newPlan.due_date)) {
+                        const [month, day, year] = newPlan.due_date.split('-');
+                        if (month && day && year) {
+                            newPlan.due_date = [year, month, day].join('-');
+                        }
                     }
                 }
                 
@@ -762,6 +778,19 @@ function TreatmentPlan({mode, riskName = ''}) {
         // If we have a treatment plan ID, include it in the data
         if (treatmentPlanId) {
             formattedData.risk_treatment_id = treatmentPlanId;
+        }
+        
+        // CRITICAL FIX: Rename the fields to match what the backend expects
+        // The backend expects "contigency_plan" (without the 'n') instead of "contingency_plan"
+        if (formattedData.contingency_plan !== undefined) {
+            formattedData.contigency_plan = formattedData.contingency_plan;
+            delete formattedData.contingency_plan;
+        }
+        
+        // Also include resource_required for backend compatibility
+        if (formattedData.resources_requirement !== undefined) {
+            formattedData.resource_required = formattedData.resources_requirement;
+            // We keep the original field as some parts of the code might rely on it
         }
         
         console.log('Final formatted data being sent to API:', JSON.stringify(formattedData));
@@ -866,7 +895,7 @@ function TreatmentPlan({mode, riskName = ''}) {
                 <FormCancelButton text={'Discard'} />
                 <FormCustomButton text={'Previous'} onClick={() => navigate(-1)} />
                 <FormCustomButton disabled={isSavingTreatmentPlanToDraft} text={isSavingTreatmentPlanToDraft ? 'Saving To Draft' :'Save To Draft'} onClick={handleSaveToDraftClicked} />
-                <FormProceedButton disabled={isUpdatingTreatmentPlan} text={isUpdatingTreatmentPlan ? 'Saving...' : 'Save'} onClick={handleNextClicked} />
+                <FormProceedButton disabled={isUpdatingTreatmentPlan} text={isUpdatingTreatmentPlan ? 'Saving...' : 'Next'} onClick={handleNextClicked} />
             </div>
         </form>
     )

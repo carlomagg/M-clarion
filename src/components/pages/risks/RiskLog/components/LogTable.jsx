@@ -7,7 +7,7 @@ import { useDeleteRisk } from "../../../../../queries/risks/risk-queries";
 import useDispatchMessage from "../../../../../hooks/useDispatchMessage";
 import { useQueryClient } from "@tanstack/react-query";
 
-export default function RiskLogTable({risks}) {
+export default function RiskLogTable({risks, approvalMode = false, activeFilter = null}) {
     const [showModal, setShowModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [riskToDelete, setRiskToDelete] = useState(null);
@@ -38,27 +38,35 @@ export default function RiskLogTable({risks}) {
     }
     
     function createItemOptions(item) {
-        const options = [
-            {text: 'View details', type: 'link', link: `/risks/${item['risk_id']}`},
-            {text: 'Edit risk', type: 'link', link: `/risks/${item['risk_id']}/update?section=identification`},
-            { 
-                text: 'Follow up',
-                type: 'action',
-                action: () => setShowModal({ type: 'followUp', context: { riskId: item['risk_id'], mode: 'add', setContext: (context) => setShowModal({ type: 'followUp', context }) } }) 
-            },
-            {
-                text: 'Risk Indicators',
-                type: 'action',
-                action: () => setShowModal({ type: 'riskIndicator', context: { riskId: item['risk_id'], mode: 'add', setContext: (context) => setShowModal({ type: 'followUp', context }) } })
-            },
-            {
-                text: 'Delete Risk',
-                type: 'action',
-                action: () => handleDeleteRisk(item['risk_id'])
-            }
-        ];
-
-        return options;
+        if (approvalMode) {
+            // In approval mode, only show 'View details' option
+            // We'll pass a special parameter to indicate we're in approval mode,
+            // so approval section remains editable while other sections are read-only
+            return [
+                {text: 'View details', type: 'link', link: `/risks/${item['risk_id']}?approvalMode=true`}
+            ];
+        } else {
+            // Default options for non-approval mode
+            return [
+                {text: 'View details', type: 'link', link: `/risks/${item['risk_id']}`},
+                {text: 'Edit risk', type: 'link', link: `/risks/${item['risk_id']}/update?section=identification`},
+                { 
+                    text: 'Follow up',
+                    type: 'action',
+                    action: () => setShowModal({ type: 'followUp', context: { riskId: item['risk_id'], mode: 'add', setContext: (context) => setShowModal({ type: 'followUp', context }) } }) 
+                },
+                {
+                    text: 'Risk Indicators',
+                    type: 'action',
+                    action: () => setShowModal({ type: 'riskIndicator', context: { riskId: item['risk_id'], mode: 'add', setContext: (context) => setShowModal({ type: 'followUp', context }) } })
+                },
+                {
+                    text: 'Delete Risk',
+                    type: 'action',
+                    action: () => handleDeleteRisk(item['risk_id'])
+                }
+            ];
+        }
     }
     
     return (
@@ -98,7 +106,7 @@ export default function RiskLogTable({risks}) {
                     document.body
                 )
             }
-            <Table type={'risk'} items={risks} hasSN={false} createRecordOptions={createItemOptions} />
+            <Table type={'risk'} items={risks} hasSN={false} createRecordOptions={createItemOptions} activeFilter={activeFilter} />
         </>
     );
 }

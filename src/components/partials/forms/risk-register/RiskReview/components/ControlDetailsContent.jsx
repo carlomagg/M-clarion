@@ -9,6 +9,7 @@ import { Box, Link, Stack, Typography, Button } from '@mui/material';
 import { useTranslation } from "react-i18next";
 import { useSnackbar } from "notistack";
 import { useQueryClient } from "@tanstack/react-query";
+import { SelectedItemsList } from '../../../../SelectedItemsList';
 
 // Set to false for production environment
 const SHOW_DEBUG_INFO = false;
@@ -37,9 +38,19 @@ export default function ControlDetailsContent({treatmentPlan}) {
     const [isRisk142, setIsRisk142] = useState(false);
     const [diagInfo, setDiagInfo] = useState({});
     
-    // Log treatmentPlan structure for debugging
+    // Add comprehensive logging for debugging
     useEffect(() => {
-        console.log("ControlDetailsContent received treatmentPlan:", treatmentPlan);
+        console.log('ControlDetailsContent - Treatment Plan data:', treatmentPlan);
+        if (treatmentPlan) {
+            console.log('Risk Response:', treatmentPlan.risk_response);
+            console.log('Control Family Type:', treatmentPlan.control_family_type);
+            console.log('Control Description:', treatmentPlan.control_description?.substring(0, 50) + '...');
+            console.log('Controls List:', treatmentPlan.controls);
+            console.log('Risk Owner:', treatmentPlan.risk_owner);
+            console.log('Resources Required:', treatmentPlan.resources_required);
+        } else {
+            console.warn('Treatment Plan data is undefined or null');
+        }
     }, [treatmentPlan]);
     
     // Create a function to get the actual treatment plan data from the nested structure
@@ -48,6 +59,40 @@ export default function ControlDetailsContent({treatmentPlan}) {
         if (treatmentPlan && treatmentPlan.control_details) {
             console.log("Found control_details structure in treatment plan data");
             return treatmentPlan.control_details;
+        }
+        
+        // Check if this is sessionStorage format (has different field names)
+        if (treatmentPlan && 
+            (treatmentPlan.recommended_control !== undefined || 
+             treatmentPlan.contingency_plan !== undefined || 
+             treatmentPlan.response_id !== undefined)) {
+             
+            console.log("Found sessionStorage format data");
+            
+            // Map from sessionStorage format to API format
+            const mappedData = {
+                recommended_control: treatmentPlan.recommended_control,
+                contingency_plan: treatmentPlan.contingency_plan || treatmentPlan.contigency_plan,
+                resource_required: treatmentPlan.resources_requirement || treatmentPlan.resource_required,
+                start_date: treatmentPlan.start_date,
+                deadline: treatmentPlan.deadline,
+                action_plan: treatmentPlan.action_plan || [],
+                risk_treatment_id: treatmentPlan.risk_treatment_id,
+                risk_response: {
+                    id: treatmentPlan.response_id,
+                    name: "Response ID: " + treatmentPlan.response_id
+                },
+                control_family_type: {
+                    id: treatmentPlan.control_family_type_id,
+                    name: "Control Family Type ID: " + treatmentPlan.control_family_type_id
+                },
+                status: {
+                    id: treatmentPlan.status,
+                    status: "Status ID: " + treatmentPlan.status
+                }
+            };
+            
+            return mappedData;
         }
         
         // If no control_details, return the treatment plan directly

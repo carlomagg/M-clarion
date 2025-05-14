@@ -5,7 +5,7 @@ import styles from './TreatmentPlan.module.css';
 import SelectDropdown from '../../../dropdowns/SelectDropdown/SelectDropdown';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useQueries, useQueryClient, useQuery } from '@tanstack/react-query';
-import { impactScoresOptions, likelihoodScoresOptions, riskRegisterStatusesOptions, riskTreatmentPlanOptions, targetRiskRatingOptions, useSaveTreatmentPlanToDraft, useUpdateTreatmentPlan } from '../../../../../queries/risks/risk-queries';
+import { impactScoresOptions, likelihoodScoresOptions, riskIdentificationOptions, riskRegisterStatusesOptions, riskTreatmentPlanOptions, targetRiskRatingOptions, useSaveTreatmentPlanToDraft, useUpdateTreatmentPlan } from '../../../../../queries/risks/risk-queries';
 import { usersOptions } from '../../../../../queries/users-queries';
 import RiskRating from '../components/RiskRating';
 import useDispatchMessage from '../../../../../hooks/useDispatchMessage';
@@ -140,11 +140,14 @@ function TreatmentPlan({mode, riskName = '', currentRiskId, onRiskIdChange}) {
     useEffect(() => {
         if (!riskID) {
             dispatchMessage('error', 'Risk ID is required');
-            navigate('/risks/register/identification');
+            navigate('/risks/manage/identification');
         }
     }, [riskID, navigate, dispatchMessage]);
 
     // Try to fetch the risk treatment ID directly if not available and not already provided in URL
+    const [fetchAttempts, setFetchAttempts] = useState(0);
+    const MAX_FETCH_ATTEMPTS = 2; // Only try twice maximum
+    
     useEffect(() => {
         // Skip if we already have a treatment plan ID from the URL
         if (directTreatmentPlanId) {
@@ -152,13 +155,31 @@ function TreatmentPlan({mode, riskName = '', currentRiskId, onRiskIdChange}) {
             return;
         }
         
+        // Skip if we've already tried too many times
+        if (fetchAttempts >= MAX_FETCH_ATTEMPTS) {
+            console.log(`Reached maximum fetch attempts (${MAX_FETCH_ATTEMPTS}), stopping retries`);
+            return;
+        }
+        
         async function fetchTreatmentPlanId() {
             if (!riskID) return;
             
+            // Track fetch attempts
+            setFetchAttempts(prev => prev + 1);
+            
+            // Create an AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            
             // Always fetch fresh data to get the treatment plan ID, don't rely on cache for this critical lookup
             try {
-                console.log(`Actively fetching risk data to get correct treatment plan ID for risk ${riskID}`);
-                const response = await axios.get(`risk/risks/${riskID}/view/`);
+                console.log(`Actively fetching risk data to get correct treatment plan ID for risk ${riskID} (attempt ${fetchAttempts + 1}/${MAX_FETCH_ATTEMPTS})`);
+                const response = await axios.get(`risk/risks/${riskID}/view/`, {
+                    signal: controller.signal,
+                    timeout: 5000 // 5 second timeout
+                });
+                
+                clearTimeout(timeoutId);
                 console.log('Risk data for treatment plan ID lookup:', response.data);
                 
                 if (response.data?.control_details?.risk_treatment_id) {
@@ -167,7 +188,10 @@ function TreatmentPlan({mode, riskName = '', currentRiskId, onRiskIdChange}) {
                     
                     // Verify the treatment plan ID exists before using it
                     try {
-                        const verifyResponse = await axios.get(`risk/risk-treatment-plans/${newTreatmentPlanId}/view/`);
+                        const verifyResponse = await axios.get(`risk/risk-treatment-plans/${newTreatmentPlanId}/view/`, {
+                            signal: controller.signal,
+                            timeout: 5000 // 5 second timeout
+                        });
                         console.log(`Verified treatment plan ID ${newTreatmentPlanId} exists:`, verifyResponse.data);
                         
                         // Cache it for future use
@@ -183,6 +207,7 @@ function TreatmentPlan({mode, riskName = '', currentRiskId, onRiskIdChange}) {
                         
                         console.log(`Successfully set treatment plan ID ${newTreatmentPlanId} for risk ${riskID}`);
                     } catch (verifyError) {
+                        clearTimeout(timeoutId);
                         console.error(`Error verifying treatment plan ID ${newTreatmentPlanId}:`, verifyError);
                         // If verification fails, we'll fall back to using the risk ID
                         dispatchMessage('warning', 'Could not verify treatment plan ID, using risk ID as fallback');
@@ -191,12 +216,20 @@ function TreatmentPlan({mode, riskName = '', currentRiskId, onRiskIdChange}) {
                     console.log(`No existing treatment plan ID found for risk ${riskID}. A new one will be created.`);
                 }
             } catch (error) {
-                console.error(`Error fetching treatment plan ID for risk ${riskID}:`, error);
+                clearTimeout(timeoutId);
+                
+                // Check if this was a timeout or abort error
+                if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+                    console.error(`Request timed out for risk ${riskID}:`, error);
+                    dispatchMessage('warning', 'Request timed out. Will continue with available data.');
+                } else {
+                    console.error(`Error fetching treatment plan ID for risk ${riskID}:`, error);
+                }
             }
         }
         
         fetchTreatmentPlanId();
-    }, [riskID, queryClient, dispatchMessage, directTreatmentPlanId]);
+    }, [riskID, queryClient, dispatchMessage, directTreatmentPlanId, fetchAttempts]);
 
     // Determine which ID to use for fetching the treatment plan
     // Prioritize direct treatment plan ID from URL first, then cached/discovered IDs
@@ -571,16 +604,7 @@ function TreatmentPlan({mode, riskName = '', currentRiskId, onRiskIdChange}) {
     }
     function onSettled(data, error) {
         if (!error) {
-            // Show a success message
-            dispatchMessage('success', data.message || 'Treatment plan saved successfully.');
-            
-            // Ensure the riskID is in sessionStorage for consistency
-            if (riskID) {
-                sessionStorage.setItem('current_risk_id', riskID);
-            }
-            
-            // Check if we should navigate to the next step
-            navigate(`/risks/register/review?id=${riskID}`);
+            navigate(`/risks/manage/review?id=${riskID}`);
         }
     }
 

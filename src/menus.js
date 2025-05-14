@@ -71,8 +71,9 @@ export const SIDEBAR_MENU = [
         module: 'risk_management',
         sub_menu: [
             {link: '/risks/dashboard', text: 'Risk Dashboard', permission: 'risk_dashboard'},
-            {link: '/risks', text: 'Manage Risk', permission: 'register_risk'},
-            {link: '/risks/register', text: 'Enrol Risk', permission: 'register_risk'},
+            {link: '/risks', text: 'Risk Log', permission: 'register_risk'},
+            {link: '/risks/register', text: 'Risk Register', permission: 'register_risk'},
+            {link: '/risks/manage', text: 'Enrol Risk', permission: 'register_risk'},
             {link: '/risks/follow-up', text: 'Risk Follow Up', permission: 'register_risk'},
             {link: '/risks/approve-table', text: 'Risk Approval', permission: 'register_risk'},
         ]
@@ -126,6 +127,7 @@ export const SETTINGS_MENU = [
     {link: 'organizational-structure', text: 'Structure', icon: home, permission: 'organizational_structure'},
     {link: 'risk-management', text: 'RM Parameters', icon: home, permission: 'organizational_structure'},
     {link: 'process-management', text: 'PM Parameters', icon: home, permission: 'organizational_structure'},
+    {link: 'notification-schedules', text: 'Notifications', icon: home, permission: 'organizational_structure'},
     // {link: 'not-implemented', text: 'System Preferences', icon: home, permission: 'system_preferences'},
     // {link: 'not-implemented', text: 'Organizational Hierarchy', icon: governance, permission: 'organizational_heirarchy'},
     // {link: 'not-implemented', text: 'Security Policies', icon: strategy, permission: 'security_policies'},

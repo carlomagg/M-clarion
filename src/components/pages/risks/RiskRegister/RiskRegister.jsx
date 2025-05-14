@@ -12,7 +12,7 @@ import RiskStepper from './components/RiskStepper';
 import { useState, useEffect } from 'react';
 import AIOverview from './components/AIOverview';
 
-function RiskRegister() {
+function ManageRisk() {
     const [allowAIAssistance, setAllowAIAssistance] = useState(false);
     const [isAIOverviewVisible, setIsAIOverviewVisible] = useState(false);
     const {step = 'identification'} = useParams();
@@ -94,7 +94,7 @@ function RiskRegister() {
 
     return (
         <div className='p-10 pt-4 max-w-7xl flex flex-col gap-6'>
-            <PageTitle title={'Register New Risk'} />
+            <PageTitle title={'Enrol Risk'} />
             <PageHeader />
             <div className='mt-4 flex flex-col gap-6'> {/* main content container */}
                 <RiskStepper {...{steps, currentStep}} allowAIAssitance={allowAIAssistance} showAIOverview={() => {setIsAIOverviewVisible(true)}} hideAIOverview={() => {setIsAIOverviewVisible(false)}} />
@@ -113,4 +113,4 @@ function RiskRegister() {
     )
 }
 
-export default RiskRegister;
+export default ManageRisk;

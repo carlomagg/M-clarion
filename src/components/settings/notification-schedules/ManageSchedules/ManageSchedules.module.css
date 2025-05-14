@@ -1,0 +1,4 @@
+/* ManageSchedules.module.css */
+.scheduleRow:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+} 

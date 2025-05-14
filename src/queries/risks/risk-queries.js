@@ -55,7 +55,16 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
     if (id === "207" || id === 207) {
         console.log("Detected known treatment plan ID 207, using direct endpoint");
         try {
-            const response = await axios.get(`risk/risk-treatment-plans/207/view/`);
+            // Create an AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            
+            const response = await axios.get(`risk/risk-treatment-plans/207/view/`, {
+                signal: controller.signal,
+                timeout: 5000 // 5 second timeout
+            });
+            
+            clearTimeout(timeoutId);
             console.log('Successfully fetched treatment plan ID 207:', response.data);
             return extractTreatmentPlanData(response.data, [{ endpoint: `risk/risk-treatment-plans/207/view/`, data: response.data }]);
         } catch (err) {
@@ -95,8 +104,17 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
     } else {
         try {
             console.log(`Trying direct treatment-view endpoint for risk ID ${id}`);
-            const directResponse = await axios.get(`risk/risk/${id}/treatment-view/`);
             
+            // Create an AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            
+            const directResponse = await axios.get(`risk/risk/${id}/treatment-view/`, {
+                signal: controller.signal,
+                timeout: 5000 // 5 second timeout
+            });
+            
+            clearTimeout(timeoutId);
             console.log('Direct treatment-view endpoint response:', directResponse.data);
             allResponses.push({ endpoint: `risk/risk/${id}/treatment-view/`, data: directResponse.data });
             
@@ -114,6 +132,8 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
             if (directError.response) {
                 console.error('HTTP status:', directError.response.status);
                 console.error('Error details:', directError.response.data);
+            } else if (directError.name === 'AbortError' || directError.code === 'ECONNABORTED') {
+                console.error('Request timed out');
             }
             console.log('Proceeding with alternative approaches...');
         }
@@ -123,12 +143,25 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
     if (isTreatmentPlanId) {
         try {
             console.log(`ID ${id} is explicitly marked as a treatment plan ID, using direct endpoint`);
-            const response = await axios.get(`risk/risk-treatment-plans/${id}/view/`);
+            
+            // Create an AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            
+            const response = await axios.get(`risk/risk-treatment-plans/${id}/view/`, {
+                signal: controller.signal,
+                timeout: 5000 // 5 second timeout
+            });
+            
+            clearTimeout(timeoutId);
             console.log('Successfully fetched treatment plan using ID directly:', response.data);
             allResponses.push({ endpoint: `risk/risk-treatment-plans/${id}/view/`, data: response.data });
             return extractTreatmentPlanData(response.data, allResponses);
         } catch (err) {
             console.error(`Error using ID as treatment plan ID (${id}):`, err.message);
+            if (err.name === 'AbortError' || err.code === 'ECONNABORTED') {
+                console.error('Request timed out');
+            }
             console.log('Proceeding with alternative approaches...');
         }
     }
@@ -137,12 +170,25 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
     if (cachedTreatmentPlanId && cachedTreatmentPlanId !== id) {
         try {
             console.log(`Found cached treatment plan ID (${cachedTreatmentPlanId}) for risk ID ${id}, using that`);
-            const response = await axios.get(`risk/risk-treatment-plans/${cachedTreatmentPlanId}/view/`);
+            
+            // Create an AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            
+            const response = await axios.get(`risk/risk-treatment-plans/${cachedTreatmentPlanId}/view/`, {
+                signal: controller.signal,
+                timeout: 5000 // 5 second timeout
+            });
+            
+            clearTimeout(timeoutId);
             console.log('Successfully fetched treatment plan using cached treatment plan ID:', response.data);
             allResponses.push({ endpoint: `risk/risk-treatment-plans/${cachedTreatmentPlanId}/view/`, data: response.data });
             return extractTreatmentPlanData(response.data, allResponses);
         } catch (err) {
             console.error(`Error using cached treatment plan ID (${cachedTreatmentPlanId}):`, err.message);
+            if (err.name === 'AbortError' || err.code === 'ECONNABORTED') {
+                console.error('Request timed out');
+            }
             console.log('Falling back to alternative approaches...');
         }
     }
@@ -151,7 +197,17 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
     if (mightBeRiskId) {
         try {
             console.log(`ID ${id} appears to be a risk ID, fetching risk data to get treatment plan ID...`);
-            const riskResponse = await axios.get(`risk/risks/${id}/view/`);
+            
+            // Create an AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            
+            const riskResponse = await axios.get(`risk/risks/${id}/view/`, {
+                signal: controller.signal,
+                timeout: 5000 // 5 second timeout
+            });
+            
+            clearTimeout(timeoutId);
             console.log('Risk data retrieved:', riskResponse.data);
             
             allResponses.push({ endpoint: `risk/risks/${id}/view/`, data: riskResponse.data });
@@ -168,13 +224,25 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
                 
                 // Now try to fetch the treatment plan with the discovered ID
                 try {
-                    const treatmentResponse = await axios.get(`risk/risk-treatment-plans/${treatmentPlanId}/view/`);
+                    // Create a new AbortController for the treatment plan request
+                    const tpController = new AbortController();
+                    const tpTimeoutId = setTimeout(() => tpController.abort(), 5000); // 5 second timeout
+                    
+                    const treatmentResponse = await axios.get(`risk/risk-treatment-plans/${treatmentPlanId}/view/`, {
+                        signal: tpController.signal,
+                        timeout: 5000 // 5 second timeout
+                    });
+                    
+                    clearTimeout(tpTimeoutId);
                     console.log(`Successfully fetched treatment plan using ID ${treatmentPlanId}:`, treatmentResponse.data);
                     
                     allResponses.push({ endpoint: `risk/risk-treatment-plans/${treatmentPlanId}/view/`, data: treatmentResponse.data });
                     return extractTreatmentPlanData(treatmentResponse.data, allResponses);
                 } catch (treatmentError) {
                     console.error(`Error fetching treatment plan with discovered ID ${treatmentPlanId}:`, treatmentError.message);
+                    if (treatmentError.name === 'AbortError' || treatmentError.code === 'ECONNABORTED') {
+                        console.error('Request timed out');
+                    }
                     console.log('Falling back to using risk data control_details if available...');
                     
                     // If the treatment plan endpoint failed but we have control_details, use that
@@ -197,6 +265,9 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
             }
         } catch (riskError) {
             console.error('Error fetching risk data:', riskError.message);
+            if (riskError.name === 'AbortError' || riskError.code === 'ECONNABORTED') {
+                console.error('Request timed out');
+            }
             console.log('Continuing with alternative endpoint attempts...');
         }
     }
@@ -226,11 +297,27 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
         
         let lastError = null;
         
+        // Limit to max 2 attempts to prevent excessive requests
+        const maxAttempts = Math.min(2, endpointFormats.length);
+        const endpointsToTry = endpointFormats.slice(0, maxAttempts);
+        
+        console.log(`Will try up to ${maxAttempts} endpoints:`, endpointsToTry);
+        
         // Try each endpoint format
-        for (const endpoint of endpointFormats) {
+        for (const endpoint of endpointsToTry) {
             try {
                 console.log(`Trying to fetch treatment plan from endpoint: ${endpoint}`);
-                const response = await axios.get(endpoint);
+                
+                // Create an AbortController for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await axios.get(endpoint, {
+                    signal: controller.signal,
+                    timeout: 5000 // 5 second timeout
+                });
+                
+                clearTimeout(timeoutId);
                 console.log(`Successfully fetched from ${endpoint}, response:`, response.data);
                 
                 allResponses.push({ endpoint, data: response.data });
@@ -251,6 +338,10 @@ async function fetchRiskTreatmentPlan({queryKey, meta}) {
                 return extractTreatmentPlanData(response.data, allResponses);
             } catch (error) {
                 console.error(`Error fetching from ${endpoint}:`, error.message);
+                if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+                    console.error('Request timed out');
+                }
+                
                 lastError = error;
                 
                 // Log more detailed error information
@@ -419,7 +510,7 @@ async function fetchTargetRiskRatingByCategory({queryKey}) {
         }
         
         // Fall back to the risk appetite endpoint
-        const url = `risk/risk-appetites/by-category/${categoryId}/`;
+        const url = `risk/risk-appetites/view-all/?category=${categoryId}`;
         console.log('Target risk by category URL:', url);
         const response = await axios.get(url);
         console.log('Target risk by category response:', response.data);
@@ -632,7 +723,17 @@ async function trySaveEndpoints(id, data, endpointSuffix) {
         if (!actualTreatmentPlanId) {
             try {
                 console.log(`No treatment plan ID found, fetching risk ${id} details to check...`);
-                const response = await axios.get(`risk/risks/${id}/view/`);
+                
+                // Create an AbortController for this request
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await axios.get(`risk/risks/${id}/view/`, {
+                    signal: controller.signal,
+                    timeout: 5000
+                });
+                
+                clearTimeout(timeoutId);
                 
                 if (response.data?.control_details?.risk_treatment_id) {
                     const foundId = response.data.control_details.risk_treatment_id;
@@ -653,7 +754,11 @@ async function trySaveEndpoints(id, data, endpointSuffix) {
                     console.log(`No existing treatment plan found for risk ${id}, will create a new one`);
                 }
             } catch (error) {
-                console.error(`Error fetching risk ${id} to get treatment plan ID:`, error.message);
+                if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+                    console.error(`Request timed out when fetching risk ${id} to get treatment plan ID`);
+                } else {
+                    console.error(`Error fetching risk ${id} to get treatment plan ID:`, error.message);
+                }
             }
         }
     }
@@ -694,11 +799,30 @@ async function trySaveEndpoints(id, data, endpointSuffix) {
     
     let lastError = null;
     
+    // Limit to max 2 attempts to prevent excessive requests
+    const maxAttempts = Math.min(2, endpointFormats.length);
+    const endpointsToTry = endpointFormats.slice(0, maxAttempts);
+    
+    console.log(`Will try up to ${maxAttempts} save endpoints:`, endpointsToTry);
+    
     // Try each endpoint format
-    for (const endpoint of endpointFormats) {
+    for (const endpoint of endpointsToTry) {
         try {
             console.log(`Trying to save to endpoint: ${endpoint}`);
-            const response = await axios.put(endpoint, data);
+            
+            // Create an AbortController for this request
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout for save operations
+            
+            const response = await axios.put(endpoint, data, {
+                signal: controller.signal,
+                timeout: 8000,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            clearTimeout(timeoutId);
             console.log(`Successfully saved to ${endpoint}, response:`, response.data);
             
             // Check for a treatment plan ID in the response
@@ -728,7 +852,13 @@ async function trySaveEndpoints(id, data, endpointSuffix) {
                 treatmentPlanId: extractedTreatmentPlanId
             };
         } catch (error) {
-            console.error(`Error saving to ${endpoint}:`, error.message);
+            clearTimeout && clearTimeout();
+            if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+                console.error(`Request timed out for ${endpoint}`);
+            } else {
+                console.error(`Error saving to ${endpoint}:`, error.message);
+            }
+            
             lastError = error;
             
             // If we get a 404, the endpoint doesn't exist, try the next one

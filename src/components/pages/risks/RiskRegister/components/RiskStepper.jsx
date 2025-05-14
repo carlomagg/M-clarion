@@ -9,7 +9,7 @@ export default function RiskStepper({steps, currentStep, allowAIAssitance, showA
     const navigate = useNavigate();
     function handleShowStep(step) {
         hideAIOverview();
-        navigate(`/risks/register/${step}${riskID ? '?id='+riskID : ''}`);
+        navigate(`/risks/manage/${step}${riskID ? '?id='+riskID : ''}`);
     }
     return (
         <div className="flex gap-6 items-center">

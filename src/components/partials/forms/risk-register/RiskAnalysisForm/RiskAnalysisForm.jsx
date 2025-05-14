@@ -16,8 +16,7 @@ import { riskMatrixSizeOptions } from '../../../../../queries/risks/risk-likelih
 function RiskAnalysisForm({mode, currentRiskId, onRiskIdChange}) {
     const [searchParams, setSearchParams] = useSearchParams();
     const params = useParams();
-    // Use currentRiskId from props if available, otherwise fallback to URL params
-    const riskID = mode === 'update' ? params.id : (currentRiskId || searchParams.get('id'));
+    const riskID = searchParams.get('id');
     const navigate = useNavigate();
     const dispatchMessage = useDispatchMessage();
     const queryClient = useQueryClient();
@@ -33,7 +32,7 @@ function RiskAnalysisForm({mode, currentRiskId, onRiskIdChange}) {
     useEffect(() => {
         if (!riskID) {
             dispatchMessage('error', 'Risk ID is required');
-            navigate('/risks/register/identification');
+            navigate('/risks/manage/identification');
         }
     }, [riskID, navigate, dispatchMessage]);
 
@@ -244,18 +243,9 @@ function RiskAnalysisForm({mode, currentRiskId, onRiskIdChange}) {
         dispatchMessage('failed', errorMessage);
     }
     function onSettled(data, error) {
-        // set newly created risk id and proceed to next step if successful
         if (!error) {
-            // Add a short delay before navigation to allow success message to display
-            setTimeout(() => {
-                // Ensure the riskID is in sessionStorage for consistency
-                if (riskID) {
-                    sessionStorage.setItem('current_risk_id', riskID);
-                }
-                
-                // will only navigate to next step if analysis in newly added
-                navigate(`/risks/register/treatment-plan?id=${riskID}`);
-            }, 1500); // 1.5 second delay
+            // Navigate to the treatment plan page with the risk ID
+            navigate(`/risks/manage/treatment-plan?id=${riskID}`);
         }
     }
 

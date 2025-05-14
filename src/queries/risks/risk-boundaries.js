@@ -15,6 +15,11 @@ async function tryEndpoints(endpoints, method, data = null, headers = {}) {
     
     for (const endpoint of endpoints) {
         attempts++;
+        
+        // Create an AbortController for this request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
         try {
             console.log(`[Attempt ${attempts}/${endpoints.length}] Trying ${method} request to: ${endpoint}`);
             
@@ -25,8 +30,8 @@ async function tryEndpoints(endpoints, method, data = null, headers = {}) {
                     'Accept': 'application/json',
                     ...headers
                 },
-                // Adding timeout to prevent hanging requests
-                timeout: 15000
+                signal: controller.signal,
+                timeout: 5000, // 5 second timeout
             };
             
             if (method === 'get') {
@@ -39,6 +44,9 @@ async function tryEndpoints(endpoints, method, data = null, headers = {}) {
                 response = await axios.delete(endpoint, config);
             }
             
+            // Clear the timeout as request completed successfully
+            clearTimeout(timeoutId);
+            
             console.log(`Success with ${method} ${endpoint}`, {
                 status: response.status,
                 statusText: response.statusText,
@@ -47,13 +55,21 @@ async function tryEndpoints(endpoints, method, data = null, headers = {}) {
             
             return response;
         } catch (error) {
-            console.warn(`Failed with ${method} ${endpoint}:`, error.message);
-            console.warn('Error details:', {
-                status: error.response?.status,
-                statusText: error.response?.statusText,
-                data: error.response?.data,
-                headers: error.response?.headers
-            });
+            // Clear the timeout as request has completed (with error)
+            clearTimeout(timeoutId);
+            
+            // Check if this was a timeout or abort error
+            if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+                console.warn(`Request timed out for ${method} ${endpoint}`);
+            } else {
+                console.warn(`Failed with ${method} ${endpoint}:`, error.message);
+                console.warn('Error details:', {
+                    status: error.response?.status,
+                    statusText: error.response?.statusText,
+                    data: error.response?.data,
+                    headers: error.response?.headers
+                });
+            }
             
             lastError = error;
         }
@@ -66,11 +82,10 @@ async function tryEndpoints(endpoints, method, data = null, headers = {}) {
 // query functions
 async function fetchRiskBoundaries() {
     try {
-        // Try multiple possible endpoints
+        // Try multiple possible endpoints, starting with the known working one
         const endpoints = [
-            'risk/risk-boundaries/',
-            'risk/risk-boundaries/list/',
             'risk/risk-boundaries/view-all/',
+            'risk/risk-boundaries/list/',
             'risk/risk-boundaries'
         ];
         
@@ -111,10 +126,9 @@ async function fetchRiskBoundary(context) {
     try {
         // Try multiple possible endpoints
         const endpoints = [
-            `risk/risk-boundaries/${id}/`,
-            `risk/risk-boundaries/${id}/view/`,
-            `risk/risk-boundaries/view/${id}`,
-            `risk/risk-boundaries/${id}`
+            `risk/risk-boundaries/view/${id}/`,
+            `risk/risk-boundaries/view-by-id/${id}/`,
+            `risk/risk-boundaries/view-all/?id=${id}`
         ];
         
         console.log(`Attempting to fetch risk boundary with ID ${id} using endpoints:`, endpoints);

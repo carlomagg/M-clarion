@@ -246,7 +246,7 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
                 onRiskIdChange(riskID);
             }
             
-            navigate(`/risks/register/analysis?id=${riskID}`);
+            navigate(`/risks/manage/analysis?id=${riskID}`);
         }
     }
 

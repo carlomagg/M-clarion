@@ -201,7 +201,7 @@ function RiskReview({mode, currentRiskId, onRiskIdChange, readOnly = false, appr
 
     function handleEditClicked(section) {
         if (mode === 'form') {
-            navigate(`/risks/register/${section}?id=${riskID}`);
+            navigate(`/risks/manage/${section}?id=${riskID}`);
         } else if (mode === 'standalone') {
             navigate(`update?section=${section}`);
         }

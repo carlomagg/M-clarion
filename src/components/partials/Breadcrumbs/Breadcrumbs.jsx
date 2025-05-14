@@ -137,6 +137,22 @@ function Breadcrumbs() {
                     path: '/settings/risk-management/risk-classification' 
                 });
             }
+            
+            // Notification Schedules
+            if (path.includes('/notification-schedules')) {
+                parts.push({ 
+                    label: 'Notification Schedules', 
+                    path: '/settings/notification-schedules' 
+                });
+                
+                // Specific notification schedules pages
+                if (path.includes('/manage')) {
+                    parts.push({ 
+                        label: 'Manage Schedules', 
+                        path: '/settings/notification-schedules/manage' 
+                    });
+                }
+            }
         }
     }
     // License Management - Administration > License Management
@@ -153,7 +169,7 @@ function Breadcrumbs() {
     }
     // Risks section
     else if (path.startsWith('/risks')) {
-        // Check if this is the risk register (index) page
+        // Check if this is the risk log (index) page
         if (path === '/risks') {
             parts.push({
                 label: 'Risk',
@@ -161,7 +177,7 @@ function Breadcrumbs() {
             });
             
             parts.push({
-                label: 'Manage Risk', 
+                label: 'Risk Log', 
                 path: '/risks' 
             });
         } else if (path === '/risks/dashboard') {
@@ -174,7 +190,17 @@ function Breadcrumbs() {
                 label: 'Dashboard',
                 path: '/risks/dashboard'
             });
-        } else if (path.includes('/risks/register')) {
+        } else if (path === '/risks/register') {
+            parts.push({
+                label: 'Risk',
+                path: '/risks'
+            });
+            
+            parts.push({
+                label: 'Risk Register', 
+                path: '/risks/register' 
+            });
+        } else if (path.includes('/risks/manage')) {
             parts.push({
                 label: 'Risk',
                 path: '/risks'

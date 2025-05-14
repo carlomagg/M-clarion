@@ -30,7 +30,8 @@ import { RiskDynamicBreadcrumb, StrategyDynamicBreadcrumb } from './components/p
 import RiskLayout from './components/pages/risks/Layout.jsx';
 import RiskDashboard from './components/pages/risks/RiskDashboard/RiskDashboard.jsx';
 import RiskLog from './components/pages/risks/RiskLog/RiskLog.jsx'
-import RiskRegister from './components/pages/risks/RiskRegister/RiskRegister.jsx'
+import ManageRisk from './components/pages/risks/RiskRegister/RiskRegister.jsx'
+import RiskRegisterPage from './components/pages/risks/RiskRegister/RiskRegisterPage.jsx'
 import RiskReview from './components/pages/risks/RiskReview/RiskReview.jsx'
 import RiskUpdate from './components/pages/risks/RiskUpdate/RiskUpdate.jsx'
 import RiskApprove from './components/pages/risks/RiskApprove/RiskApprove.jsx'
@@ -65,6 +66,10 @@ import ProcessManagementLayout from './components/settings/process-management/La
 import SettingsProcessManagementIndex from './components/settings/process-management/Index/Index';
 import ProcessBoundarySetup from './components/settings/process-management/ProcessBoundarySetup/ProcessBoundarySetup';
 import ImportTab from './components/pages/risks/components/ImportTab'
+// Import the notification schedules components
+import NotificationSchedulesLayout from './components/settings/notification-schedules/Layout';
+import NotificationSchedulesIndex from './components/settings/notification-schedules/Index/Index';
+import ManageSchedules from './components/settings/notification-schedules/ManageSchedules/ManageSchedules';
 
 // Create a wrapper component for admin-only routes
 function AdminRoute({ children }) {
@@ -145,7 +150,8 @@ const ROUTES = [
                 children: [
                     {index: true, element: <RiskLog />, breadcrumb: 'Risk Log'},
                     {path: 'dashboard', element: <RiskDashboard />, breadcrumb: 'Dashboard'},
-                    {path: 'register/:step?', element: <RiskRegister />, breadcrumb: 'Manage Risk'},
+                    {path: 'register', element: <RiskRegisterPage />, breadcrumb: 'Risk Register'},
+                    {path: 'manage/:step?', element: <ManageRisk />, breadcrumb: 'Enrol Risk'},
                     {path: 'approve', element: <RiskApprove />, breadcrumb: 'Risk Approval'},
                     {path: 'approve/:id', element: <RiskApprove />, breadcrumb: 'Approve Risk'},
                     {path: 'approve-table', element: <RiskLog approvalMode={true} />, breadcrumb: 'Risk Approval Table'},
@@ -243,6 +249,15 @@ const ROUTES = [
                         children: [
                             {index: true, element: <SettingsProcessManagementIndex />, breadcrumb: 'Process Management'},
                             {path: 'process-boundary', element: <ProcessBoundarySetup />, breadcrumb: 'Process Boundary'},
+                        ]
+                    },
+                    {
+                        path: 'notification-schedules',
+                        element: <NotificationSchedulesLayout />,
+                        breadcrumb: 'Notification Schedules',
+                        children: [
+                            {index: true, element: <NotificationSchedulesIndex />, breadcrumb: 'Notification Settings'},
+                            {path: 'manage', element: <ManageSchedules />, breadcrumb: 'Manage Schedules'},
                         ]
                     },
                     {path: 'not-implemented', element: <div className='h-full w-full grid place-items-center'>This page is not implemented yet</div>, breadcrumb: 'Not Implemented'}

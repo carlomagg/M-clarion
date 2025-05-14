@@ -240,7 +240,8 @@ async function addRiskBoundary({data}) {
             description: data.description,
             lower_bound: parseInt(data.lower_bound),
             higher_bound: parseInt(data.higher_bound),
-            color: data.color, 
+            color: data.color || data.colour, 
+            colour: data.colour || data.color, // Add both spellings to improve compatibility
             other_applications: data.other_applications || 'partial'
         };
         
@@ -290,12 +291,13 @@ function logDebugInfo(stage, data) {
 
 async function updateRiskBoundary({id, data}) {
     try {
-        // Format data according to the sample payload
+        // Format data according to the sample payload - include both color and colour
         const sanitizedData = {
             description: data.description,
             lower_bound: parseInt(data.lower_bound),
             higher_bound: parseInt(data.higher_bound),
-            color: data.color,
+            color: data.color || data.colour,
+            colour: data.colour || data.color, // Include both spellings for maximum compatibility
             other_applications: data.other_applications || 'partial'
         };
         
@@ -311,7 +313,8 @@ async function updateRiskBoundary({id, data}) {
             `risk/risk-boundaries/${id}`
         ];
         
-        // Try updating with different variations of field names
+        // This approach with multiple data variations is already well implemented
+        // Leave the rest as is
         const dataVariations = [
             // Original format
             sanitizedData,
@@ -325,6 +328,7 @@ async function updateRiskBoundary({id, data}) {
                 lowerBound: sanitizedData.lower_bound,
                 higherBound: sanitizedData.higher_bound,
                 color: sanitizedData.color,
+                colour: sanitizedData.colour,
                 otherApplications: sanitizedData.other_applications
             },
             

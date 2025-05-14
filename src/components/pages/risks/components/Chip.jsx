@@ -36,14 +36,14 @@ function useRatingColor(rating) {
         
         if (boundary) {
             console.log(`Found boundary for rating ${rating}:`, boundary);
-            // Check if color is present in the boundary object
-            if (boundary.colour) {
-                setColor(boundary.colour);
-                console.log(`Using boundary color: ${boundary.colour}`);
-            } else if (boundary.color) {
-                // Some implementations might use 'color' instead of 'colour'
+            // Check if color is present in the boundary object - prioritize 'color' spelling
+            if (boundary.color) {
                 setColor(boundary.color);
                 console.log(`Using boundary color: ${boundary.color}`);
+            } else if (boundary.colour) {
+                // Fallback to British spelling if needed
+                setColor(boundary.colour);
+                console.log(`Using boundary colour: ${boundary.colour}`);
             } else {
                 console.log('Boundary found but no color property available:', boundary);
                 // Fallback to default colors

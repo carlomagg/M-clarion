@@ -53,9 +53,28 @@ export default function BoundaryLevelsTable({items, checkOverlap }) {
                 }
             });
         };
+
+        // Handler for view action that passes the full record
+        const handleView = () => {
+            console.log('View button clicked for record:', record);
+            if (!record.id) {
+                console.error('Record is missing ID, cannot view');
+                dispatchMessage('failed', 'Cannot view this record - missing ID');
+                return;
+            }
+            
+            setShowModal({
+                context: {
+                    mode: 'view', 
+                    id: record.id,
+                    // Include the record data for view mode
+                    record: record
+                }
+            });
+        };
         
         const options = [
-            {text: 'View', type: 'action', action: () => setShowModal({context: {mode: 'view', id: record.id}})},
+            {text: 'View', type: 'action', action: handleView},
             {text: 'Edit', type: 'action', action: handleEdit},
             {text: 'Delete', type: 'action', action: () => confirmAction(() => deleteBoundary({id: record.id}))},
             {text: 'History', type: 'action', action: () => {}},
@@ -107,15 +126,18 @@ function TableRecord({record, options}) {
     // Add logging to debug the record data
     console.log('TableRecord received record:', record);
     
-    // Handle both color and colour fields for robustness
-    const colorValue = record['color'] || record['colour'] || 'black';
+    // Handle various field naming conventions
+    const colorValue = record.color || record.colour || 'black';
+    const lowerBound = record.lower_bound ?? record.lowerBound ?? record.lower ?? 'N/A';
+    const higherBound = record.higher_bound ?? record.higherBound ?? record.higher ?? 'N/A';
+    const description = record.description || 'No description';
     
     return (
         <div className='px-4 flex items-center gap-4'>
-            <span className='py-2 flex-[.5_0]'>{record['sn']}</span>
-            <span className='py-2 flex-[2_0]'>{record['description']}</span>
-            <span className='py-2 flex-[1_0] text-center'>{record['lower_bound']}</span>
-            <span className='py-2 flex-[1_0] text-center'>{record['higher_bound']}</span>
+            <span className='py-2 flex-[.5_0]'>{record.sn}</span>
+            <span className='py-2 flex-[2_0]'>{description}</span>
+            <span className='py-2 flex-[1_0] text-center'>{lowerBound}</span>
+            <span className='py-2 flex-[1_0] text-center'>{higherBound}</span>
             <span className='py-2 flex-[1_0]'>
                 <span className="flex items-center gap-2">
                     <ColorChip color={colorValue} />

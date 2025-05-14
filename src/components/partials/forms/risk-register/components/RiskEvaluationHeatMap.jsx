@@ -46,7 +46,8 @@ function Tile({likelihood, impact, selected}) {
     const { levels } = useContext(RiskHeatmapContext);
     const tileLevel = levels.find(level => weight >= level.lower_bound && weight <= level.higher_bound);
     
-    const color = tileLevel?.colour || '#fff';
+    // Check for both 'color' and 'colour' properties to handle different spelling conventions
+    const color = tileLevel?.color || tileLevel?.colour || '#fff';
 
     const isSelected = selected.some(s => likelihood === s.likelihood && impact === s.impact);
 

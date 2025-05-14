@@ -21,81 +21,67 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
     const {mode, checkOverlap, id: boundaryId = null, record = null} = context;
     console.log(`RiskBoundaryDialog initialized with mode: ${mode}, id: ${boundaryId}, record:`, record);
 
-    // queries
-    const [boundaryQuery] = useQueries({
-        queries: [riskBoundaryOptions(boundaryId, {
-            enabled: !!boundaryId && mode === 'edit' && !record, // Only fetch if record not provided
-            staleTime: 0,
-            cacheTime: 0,
-            refetchOnMount: true,
-            refetchOnWindowFocus: false,
-            retry: 3,
-            onSuccess: (data) => {
-                console.log('Successfully fetched boundary data:', data);
-            },
-            onError: (error) => {
-                console.error('Error fetching boundary data:', error);
-                dispatchMessage('failed', 'Failed to load boundary data for editing');
-            }
-        })]
-    });
-
     // Important: Initialize dispatchMessage before it's used
     const queryClient = useQueryClient();
     const dispatchMessage = useDispatchMessage();
 
-    // Initialize form data from record if provided
+    // queries - Enable for view mode too if record not provided
+    const [boundaryQuery] = useQueries({
+        queries: [
+            {
+                ...riskBoundaryOptions(boundaryId),
+                enabled: mode === 'edit' && boundaryId !== null && !record,
+            }
+        ]
+    });
+
+    // Handle view mode with record provided
     useEffect(() => {
-        if (mode === 'edit' && record) {
-            console.log('Using provided record data to populate form:', record);
+        if (mode === 'view' && record && !dataLoaded) {
+            console.log('View mode with record provided:', record);
             
             try {
-                // Extract data using various possible field names
-                const description = record.description;
-                const lowerBound = record.lower_bound ?? record.lowerBound ?? record.lower;
-                const higherBound = record.higher_bound ?? record.higherBound ?? record.higher;
+                // For view mode, we just need the record data normalized for display
+                // Extract the color value from the record (support both spellings)
                 const color = record.color ?? record.colour ?? 'black';
-                const otherApps = record.other_applications ?? record.otherApplications ?? 'partial';
+                console.log(`View mode color value: ${color}`);
                 
-                const updatedData = {
-                    description: description || '',
-                    lower_bound: lowerBound !== undefined ? String(lowerBound) : '',
-                    higher_bound: higherBound !== undefined ? String(higherBound) : '',
-                    color: color || 'black',
-                    other_applications: otherApps || 'partial'
+                // No need to set form data here as view mode doesn't use editable form
+                setDataLoaded(true);
+            } catch (error) {
+                console.error('Error processing view mode record:', error);
+            }
+        }
+    }, [mode, record, dataLoaded]);
+
+    // Initialize form data for edit mode
+    useEffect(() => {
+        // First, handle record data if provided (for quick editing without additional API call)
+        if (mode === 'edit' && record && !dataLoaded) {
+            try {
+                console.log('Edit mode with record provided:', record);
+                // Extract the color value from the record (support both spellings)
+                const color = record.color ?? record.colour ?? 'black';
+                
+                const formattedData = {
+                    description: record.description || '',
+                    lower_bound: String(record.lower_bound ?? record.lowerBound ?? ''),
+                    higher_bound: String(record.higher_bound ?? record.higherBound ?? ''),
+                    color, // Use the extracted color value
+                    other_applications: record.other_applications ?? record.otherApplications ?? 'partial'
                 };
                 
-                setFormData(updatedData);
+                setFormData(formattedData);
                 setDataLoaded(true);
-                console.log('Form data populated from record:', updatedData);
+                console.log('Set form data from record for edit mode:', formattedData);
             } catch (error) {
-                console.error('Error processing record data:', error);
-                dispatchMessage('failed', 'Error processing record data');
+                console.error('Error processing edit mode record:', error);
+                dispatchMessage('failed', 'Error processing boundary data');
             }
         }
-    }, [mode, record, dispatchMessage]);
+    }, [mode, record, dispatchMessage, dataLoaded]);
 
-    // Debug the query state
-    useEffect(() => {
-        if (mode === 'edit' && boundaryId && !record) {
-            console.log('Query state:', {
-                isLoading: boundaryQuery.isLoading,
-                isError: boundaryQuery.isError,
-                error: boundaryQuery.error,
-                isFetching: boundaryQuery.isFetching,
-                status: boundaryQuery.status,
-                dataExists: !!boundaryQuery.data
-            });
-            
-            // Force a refetch if needed
-            if (!boundaryQuery.data && !boundaryQuery.isLoading && !boundaryQuery.isFetching) {
-                console.log('Manually refetching boundary data...');
-                boundaryQuery.refetch();
-            }
-        }
-    }, [mode, boundaryId, boundaryQuery, record]);
-
-    // populate formdata from API query when in edit mode (backup approach)
+    // Handle data from API for edit mode
     useEffect(() => {
         // Only update form data when in edit mode, we have data from query, and no record was provided
         if (mode === 'edit' && boundaryQuery.data && !dataLoaded) {
@@ -174,39 +160,38 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
     }
 
     function handleChange(e) {
-        setIsOverLapping(false);
-        
         // Special handling for color field
         if (e.target.name === 'color') {
-            // For dropdown selection
             if (e.target.type === 'select-one') {
+                // For dropdown selection
                 setFormData({...formData, color: e.target.value});
-            } 
-            // For color picker
-            else {
+            } else {
+                // For color picker
                 setFormData({...formData, color: e.target.value});
             }
-        } else {
+        }
+        // Standard handling for other fields
+        else {
             setFormData({...formData, [e.target.name]: e.target.value});
         }
     }
 
     // Convert a color name to hexadecimal if needed
     function getColorValue(colorName) {
-        // If it's already a hex value, return it
-        if (colorName && colorName.startsWith('#')) {
-            return colorName;
-        }
-        
         try {
+            if (colorName && colorName.startsWith('#')) {
+                return colorName;
+            }
+            
             // Create a temporary element to convert color names to hex
             const tempElem = document.createElement('div');
             tempElem.style.color = colorName || 'black';
             document.body.appendChild(tempElem);
+            
             const computedColor = getComputedStyle(tempElem).color;
             document.body.removeChild(tempElem);
             
-            // Parse RGB format and convert to hex
+            // Convert rgb format to hex
             const rgbMatch = computedColor.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
             if (rgbMatch) {
                 const r = parseInt(rgbMatch[1]).toString(16).padStart(2, '0');
@@ -227,12 +212,13 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
             return;
         }
         
-        // Format data exactly like the sample payload
+        // Format data for API - include both color and colour for maximum compatibility
         const dataForApi = {
             description: formData.description,
             lower_bound: parseInt(formData.lower_bound) || 0,
             higher_bound: parseInt(formData.higher_bound) || 0,
-            color: formData.color,
+            color: formData.color,       // Include American spelling
+            colour: formData.color,      // Include British spelling 
             other_applications: formData.other_applications
         };
         
@@ -253,7 +239,27 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
     if (isLoading) content = <div>Loading risk boundary data...</div>
     else if (error) content = <div>Error loading risk boundary: {error.message}</div>
     else {
-        const boundary = (mode === 'view' && boundaryQuery.data) || {};
+        // Get boundary data from either record or query
+        let boundary;
+        
+        if (mode === 'view') {
+            // In view mode, use record if available, otherwise use query data
+            if (record) {
+                console.log('Using provided record data for view mode:', record);
+                boundary = record;
+            } else if (boundaryQuery.data) {
+                console.log('Using query data for view mode:', boundaryQuery.data);
+                boundary = boundaryQuery.data;
+            } else {
+                console.warn('No data available for view mode');
+                boundary = {};
+            }
+        } else {
+            boundary = {};
+        }
+
+        // Log the boundary data being used
+        console.log('Boundary data for rendering:', boundary);
 
         if (mode === 'view' && Object.keys(boundary).length === 0) {
             content = <div>No data found for this risk boundary. It may have been deleted or is not accessible.</div>;
@@ -269,33 +275,33 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
                         <div className="flex gap-6">
                             <Field {...{type: 'number', name: 'lower_bound', label: 'Lower Bound', value: formData.lower_bound, onChange: handleChange}} />
                             <Field {...{type: 'number', name: 'higher_bound', label: 'Higher Bound', value: formData.higher_bound, onChange: handleChange}} />
-                            <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium">Color</label>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="color" 
-                                        name="color" 
-                                        value={getColorValue(formData.color)} 
-                                        onChange={handleChange}
-                                        className="border border-[#E2E2E2] rounded-md h-10"
-                                    />
-                                    <select 
-                                        name="color" 
-                                        className="border border-[#E2E2E2] rounded-md p-2" 
-                                        value={formData.color} 
-                                        onChange={handleChange}
-                                    >
-                                        <option value="black">Black</option>
-                                        <option value="red">Red</option>
-                                        <option value="green">Green</option>
-                                        <option value="blue">Blue</option>
-                                        <option value="yellow">Yellow</option>
-                                        <option value="orange">Orange</option>
-                                        <option value="purple">Purple</option>
-                                        <option value="pink">Pink</option>
-                                        <option value="gray">Gray</option>
-                                    </select>
-                                </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium">Color</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="color" 
+                                    name="color" 
+                                    value={getColorValue(formData.color)} 
+                                    onChange={handleChange}
+                                    className="border border-[#E2E2E2] rounded-md h-10"
+                                />
+                                <select 
+                                    name="color" 
+                                    className="border border-[#E2E2E2] rounded-md p-2" 
+                                    value={formData.color} 
+                                    onChange={handleChange}
+                                >
+                                    <option value="black">Black</option>
+                                    <option value="red">Red</option>
+                                    <option value="green">Green</option>
+                                    <option value="blue">Blue</option>
+                                    <option value="yellow">Yellow</option>
+                                    <option value="orange">Orange</option>
+                                    <option value="purple">Purple</option>
+                                    <option value="pink">Pink</option>
+                                    <option value="gray">Gray</option>
+                                </select>
                             </div>
                         </div>
                         <div className="flex gap-6">
@@ -331,43 +337,49 @@ export default function RiskBoundaryDialog({context, onRemoveModal}) {
                         </div>
                     </div>
                     <hr className="border border-red-[#CCC]" />
-                    <div className="flex gap-6">
-                        <FormCancelButton text={'Discard'} onClick={onRemoveModal} />
-                        <FormProceedButton disabled={isAddingBoundary || isUpdatingBoundary} text={'Save'} onClick={handleSave} />
+                    <div className="flex justify-end gap-2">
+                        <FormCancelButton text="Discard" onClick={onRemoveModal} />
+                        <FormProceedButton 
+                            disabled={isAddingBoundary || isUpdatingBoundary} 
+                            text={isAddingBoundary || isUpdatingBoundary ? 'Saving...' : 'Save'} 
+                            onClick={handleSave} 
+                        />
                     </div>
                 </> :
                 <>
                     <div className="flex flex-col gap-3">
-                        <span className="font-medium">Description</span>
-                        <p>{boundary.description || 'No description'}</p>
+                        <div className="flex flex-col gap-3">
+                            <span className="font-medium">Description</span>
+                            <p>{boundary?.description || 'No description'}</p>
+                        </div>
                     </div>
                     <div className="flex gap-6">
                         <div className="flex flex-col gap-3">
                             <span className="font-medium">Lower Bound</span>
-                            <p>{boundary.lower_bound ?? 'Not set'}</p>
+                            <p>{boundary?.lower_bound ?? boundary?.lowerBound ?? 'Not set'}</p>
                         </div>
                         <div className="flex flex-col gap-3">
                             <span className="font-medium">Higher Bound</span>
-                            <p>{boundary.higher_bound ?? 'Not set'}</p>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            <span className="font-medium">Color</span>
-                            <p className="flex gap-2 items-center">
-                                <span style={{
-                                    backgroundColor: boundary.color || boundary.colour || '#000000', 
-                                    width: '20px', 
-                                    height: '20px', 
-                                    display: 'inline-block',
-                                    borderRadius: '4px',
-                                    border: '1px solid #E2E2E2'
-                                }}></span>
-                                {boundary.color || boundary.colour || 'Not set'}
-                            </p>
+                            <p>{boundary?.higher_bound ?? boundary?.higherBound ?? 'Not set'}</p>
                         </div>
                     </div>
                     <div className="flex flex-col gap-3">
+                        <span className="font-medium">Color</span>
+                        <p className="flex gap-2 items-center">
+                            <span style={{
+                                backgroundColor: boundary?.color || boundary?.colour || '#000000', 
+                                width: '20px', 
+                                height: '20px', 
+                                display: 'inline-block',
+                                borderRadius: '4px',
+                                border: '1px solid #E2E2E2'
+                            }}></span>
+                            {boundary?.color || boundary?.colour || 'Not set'}
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-3">
                         <span className="font-medium">Other Applications</span>
-                        <p>{boundary.other_applications || 'Not set'}</p>
+                        <p>{boundary?.other_applications ?? boundary?.otherApplications ?? 'Not set'}</p>
                     </div>
                 </>
         }

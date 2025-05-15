@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import { riskLogOptions } from '../../../../queries/risks/risk-queries';
 import SortButton from '../RiskLog/components/SortButton';
 import FilterButton from '../RiskLog/components/FilterButton';
-import importIcon from '../../../../assets/icons/import.svg';
 import exportIcon from '../../../../assets/icons/export.svg';
 import ActionsDropdown from '../../../partials/dropdowns/ActionsDropdown/ActionsDropdown';
 import SelectDropdown from '../../../partials/dropdowns/SelectDropdown/SelectDropdown';
@@ -99,7 +98,6 @@ export default function RiskRegisterPage() {
     };
 
     const actions = [
-        {text: 'Import', icon: importIcon, type: 'link', link: '/risks/import', permission: 'add_mulitple_users_file'},
         {text: 'Export', icon: exportIcon, type: 'action', onClick: exportToCSV, permission: 'add_multiple_users_emails'},
     ];
 

@@ -354,11 +354,23 @@ const ProcessTab = ({ setActiveTab, formData, updateFormData, fromRiskLog }) => 
     <div className="border p-6 mt-4 rounded-lg flex flex-col gap-8 w-full bg-gray-50 shadow">
       {/* Process ID and Metadata Section */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-300 p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <span className="text-gray-500">PROCESS ID: {processId}</span>
-          <span className="text-gray-500">Version 1</span>
-          <span className="text-gray-500">Date Created: 12/04/2024</span>
-          <span className="text-gray-500">Last Updated: 12/04/2024</span>
+        <div className="flex flex-col space-y-2 mb-4">
+          <div className="flex items-center">
+            <span className="text-gray-500 w-32">PROCESS ID:</span>
+            <span className="text-gray-700">{processId}</span>
+          </div>
+          <div className="flex items-center">
+            <span className="text-gray-500 w-32">Version:</span>
+            <span className="text-gray-700">1</span>
+          </div>
+          <div className="flex items-center">
+            <span className="text-gray-500 w-32">Date Created:</span>
+            <span className="text-gray-700">12/04/2024</span>
+          </div>
+          <div className="flex items-center">
+            <span className="text-gray-500 w-32">Last Updated:</span>
+            <span className="text-gray-700">12/04/2024</span>
+          </div>
         </div>
         
         {/* Title and Process Type in the same row */}

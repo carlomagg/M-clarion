@@ -54,7 +54,6 @@ const MyQueue = () => {
             <th className="px-4 py-2 font-medium text-gray-600">
               Incidence Area
             </th>
-            <th className="px-4 py-2"></th> {/* Empty cell for icon */}
           </tr>
         </thead>
         <tbody>
@@ -77,9 +76,6 @@ const MyQueue = () => {
               <td className="px-4 py-2">{item.severity}</td>
               <td className="px-4 py-2">{item.reported}</td>
               <td className="px-4 py-2">{item.area}</td>
-              <td className="px-4 py-2 text-right">
-                <PiDotsThreeVerticalBold className="text-gray-500 cursor-pointer" />
-              </td>
             </tr>
           ))}
         </tbody>

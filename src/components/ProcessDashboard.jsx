@@ -1,7 +1,6 @@
 import React from 'react';
 import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Pie, Bar } from 'react-chartjs-2';
-import { EllipsisVerticalIcon } from '@heroicons/react/24/outline';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -69,7 +68,6 @@ const ProcessDashboard = () => {
         <div className="bg-white rounded-lg p-4 shadow">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-medium">Total number of process: 120</h3>
-            <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
           </div>
           <Pie data={processStatusData} options={chartOptions} />
         </div>
@@ -78,7 +76,6 @@ const ProcessDashboard = () => {
         <div className="bg-white rounded-lg p-4 shadow">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-medium">Process distribution by priority level</h3>
-            <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
           </div>
           <Pie data={priorityData} options={chartOptions} />
         </div>
@@ -87,7 +84,6 @@ const ProcessDashboard = () => {
         <div className="bg-white rounded-lg p-4 shadow">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-medium">Process distribution by business unit</h3>
-            <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
           </div>
           <Pie data={businessUnitData} options={chartOptions} />
         </div>
@@ -102,11 +98,10 @@ const ProcessDashboard = () => {
               <option>5</option>
             </select>
           </div>
-          <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
         </div>
         
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -114,7 +109,6 @@ const ProcessDashboard = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -129,9 +123,6 @@ const ProcessDashboard = () => {
                     <span className="px-2 py-1 text-green-600 bg-green-100 rounded-md text-sm">{process.status}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{process.type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -158,7 +149,6 @@ const ProcessDashboard = () => {
               <option>Process Name</option>
             </select>
           </div>
-          <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
         </div>
 
         <div className="relative">

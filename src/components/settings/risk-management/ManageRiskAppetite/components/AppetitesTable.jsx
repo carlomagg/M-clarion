@@ -34,7 +34,6 @@ export default function AppetitesTable({items}) {
             {text: 'View details', type: 'action', action: () => setShowModal({context: {mode: 'view', id: record.risk_appetite_id}})},
             {text: 'Edit', type: 'action', action: () => setShowModal({context: {mode: 'edit', id: record.risk_appetite_id}})},
             {text: 'Delete', type: 'action', action: () => confirmAction(() => deleteAppetite({id: record.risk_appetite_id}))},
-            {text: 'History', type: 'action', action: () => {}},
         ];
         return options;
     }

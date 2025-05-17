@@ -27,8 +27,23 @@ const ProcessInfoHeader = ({ processData }) => {
   
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-      <div className="text-sm text-gray-600 mb-2">
-        PROCESS ID: {processId} Version {version} Date Created: {dateCreated} Last Updated: {lastUpdated}
+      <div className="flex flex-col space-y-2 mb-4">
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">PROCESS ID:</span>
+          <span className="text-gray-700">{processId}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">Version:</span>
+          <span className="text-gray-700">{version}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">Date Created:</span>
+          <span className="text-gray-700">{dateCreated}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">Last Updated:</span>
+          <span className="text-gray-700">{lastUpdated}</span>
+        </div>
       </div>
       <div className="flex gap-6">
         <div className="w-1/2">

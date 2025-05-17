@@ -10,7 +10,6 @@ import {
   FormProceedButton,
 } from "../../../../partials/buttons/FormButtons/FormButtons";
 import { CKEField } from "../../../../partials/Elements/Elements";
-import { PiDotsThreeVerticalBold } from "react-icons/pi";
 
 // Process info header component
 const ProcessInfoHeader = ({ processData }) => {
@@ -27,8 +26,23 @@ const ProcessInfoHeader = ({ processData }) => {
   
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-      <div className="text-sm text-gray-600 mb-2">
-        PROCESS ID: {processId} Version {version} Date Created: {dateCreated} Last Updated: {lastUpdated}
+      <div className="flex flex-col space-y-2 mb-4">
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">PROCESS ID:</span>
+          <span className="text-gray-700">{processId}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">Version:</span>
+          <span className="text-gray-700">{version}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">Date Created:</span>
+          <span className="text-gray-700">{dateCreated}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-gray-500 w-32">Last Updated:</span>
+          <span className="text-gray-700">{lastUpdated}</span>
+        </div>
       </div>
       <div className="flex gap-6">
         <div className="w-1/2">
@@ -51,10 +65,6 @@ const TaskAndWorkflow = ({ setActiveTab, formData, updateFormData }) => {
   const [workflowSteps, setWorkflowSteps] = useState(formData?.taskWorkflow?.tasks || []);
   const [showWorkflowForm, setShowWorkflowForm] = useState(false);
   const [savedWorkflowForm, setSavedWorkflowForm] = useState(null);
-  const [showTaskMenu, setShowTaskMenu] = useState({
-    status: false,
-    index: null
-  });
   const [editingIndex, setEditingIndex] = useState(null);
   const [lastAddedTaskId, setLastAddedTaskId] = useState(null);
 
@@ -144,13 +154,6 @@ const TaskAndWorkflow = ({ setActiveTab, formData, updateFormData }) => {
     setActiveTab("Process Details");
   };
 
-  const handleMenu = (index) => {
-    setShowTaskMenu(prev => ({
-      status: prev.index === index ? !prev.status : true,
-      index
-    }));
-  };
-
   const handleSaveFormState = (formState) => {
     setSavedWorkflowForm(formState);
   };
@@ -208,17 +211,6 @@ const TaskAndWorkflow = ({ setActiveTab, formData, updateFormData }) => {
         return 'bg-gray-100 text-gray-800';
     }
   };
-
-  const MenuDot = ({ index }) => (
-    <div className="absolute p-4 w-[120px] justify-center items-center bg-white border shadow-md cursor-pointer border-[#676767] text-black flex rounded-lg">
-      <ul>
-        <li className="px-2 hover:bg-gray-100">Edit Process</li>
-        <li className="px-2 hover:bg-gray-100">Delete</li>
-        <li className="px-2 hover:bg-gray-100">Suspend</li>
-        <li className="px-2 hover:bg-gray-100">History</li>
-      </ul>
-    </div>
-  );
 
   const stripHtmlTags = (html) => {
     if (!html) return '';

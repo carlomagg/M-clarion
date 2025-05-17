@@ -428,71 +428,78 @@ function RiskIdentificationForm({mode, toggleAIAssistance, setRiskName, setRiskC
             }
             <div className='flex flex-col gap-9'>
                 <div>
-                    {/* <h3 className='text-lg font-semibold text-[#727272]'>Risk ID:</h3> */}
-                    <div className='mt-3 flex flex-col gap-6'>
-                        <Field {...{name: 'name', label: 'Name', placeholder: 'Enter risk name', value: formData.name, onChange: handleChange}} />
-                        <div className='flex flex-col gap-3'>
-                            <div className='flex gap-6'>
-                                <div className='w-[35%]'>
-                                    <RiskCategoryDropdown categories={riskCategories} selected={formData.category_id} onChange={handleChange} />
-                                </div>
-                                <div className='w-[35%]'>
-                                    <RiskClassDropdown 
-                                        classes={classesToShow} 
-                                        selected={formData.class_id} 
-                                        onChange={handleChange} 
-                                        totalClassCount={allRiskClasses.length}
-                                        isAllClasses={selectedCategoryId && filteredRiskClasses.length === 0 && classesToShow.length > 0}
-                                    />
-                                </div>
-                                <div className='w-[35%]'>
-                                    <Field {...{type: 'date', label: 'Date Identified', name: 'date', value: formData.date, onChange: handleChange}} />
-                                </div>
-                            </div>
-                            {formData.category_id && (
-                                <div className='flex mt-2 p-2 bg-gray-50 rounded-md border border-gray-100'>
-                                    <div className='flex flex-col gap-2 items-start'>
-                                        <h4 className='font-medium text-sm'>Target Risk Rating</h4>
-                                        <div className="flex items-center gap-2">
-                                            {console.log('About to render RiskRating with value:', {
-                                                targetRiskRating,
-                                                isNumber: typeof targetRiskRating === 'number',
-                                                isValidRating: targetRiskRating !== undefined && targetRiskRating !== null,
-                                                riskID,
-                                                fromRiskQuery: targetRiskRatingQuery.data,
-                                                fromCategoryQuery: targetRiskRatingByCategoryQuery.data
-                                            })}
-                                            <RiskRating riskRating={targetRiskRating} />
-                                        </div>
+                    <div className="flex flex-col gap-6">
+                        <div>
+                            <h4 className='text-sm bg-[#FFDDEE] rounded-full py-1 px-2 font-medium text-text-pink inline-block'>RISK ID: {riskID}</h4>
+                            <div className='mt-3 flex flex-col gap-6'>
+                                <Field {...{name: 'name', label: 'Name', placeholder: 'Enter risk name', value: formData.name, onChange: handleChange}} />
+                                <div className='flex gap-6'>
+                                    <div className='w-[35%]'>
+                                        <label className="font-medium mb-2 block">Category</label>
+                                        <RiskCategoryDropdown categories={riskCategories} selected={formData.category_id} onChange={handleChange} />
+                                    </div>
+                                    <div className='w-[35%]'>
+                                        <label className="font-medium mb-2 block">Class</label>
+                                        <RiskClassDropdown 
+                                            classes={classesToShow} 
+                                            selected={formData.class_id} 
+                                            onChange={handleChange} 
+                                            totalClassCount={allRiskClasses.length}
+                                            isAllClasses={selectedCategoryId && filteredRiskClasses.length === 0 && classesToShow.length > 0}
+                                        />
+                                    </div>
+                                    <div className='w-[35%]'>
+                                        <label className="font-medium mb-2 block">Date Identified</label>
+                                        <Field {...{type: 'date', name: 'date', value: formData.date, onChange: handleChange}} />
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                        <label className='flex gap-2 items-center'>
-                            <input type="checkbox" onChange={toggleAIAssistance} />
-                            <span>Allow AI Assistance</span>
-                        </label>
-                        <RiskDescriptionField value={formData.description} onChange={handleChange} {...{riskName: formData.name, selectedCategory, selectedClass}} />
-                        <TagsField value={formData.tags} onChange={handleChange} {...{riskName: formData.name, selectedCategory, selectedClass}} />
-                        <div className='flex flex-col gap-3'>
-                            <h4 className='font-medium'>Identification Tools</h4>
-                            <SelectedItemsList 
-                                list={selectedIdentificationTools}
-                                editable={true}
-                                onRemove={(tool) => setFormData({...formData, identification_tool_ids: formData.identification_tool_ids.filter(id => id !== tool.id)})} />
-                            <div className=''>
-                                <AddNewButton small={true} text={"Add Identification Tool"} onClick={() => setShowModal({type: 'tools', texts: {heading: 'Select Identification Tools', placeholder: 'Search Tools'}})} />
+                                {formData.category_id && (
+                                    <div className='flex mt-2 p-2 bg-gray-50 rounded-md border border-gray-100'>
+                                        <div className='flex flex-col gap-2 items-start'>
+                                            <h4 className='font-medium text-sm'>Target Risk Rating</h4>
+                                            <div className="flex items-center gap-2">
+                                                {console.log('About to render RiskRating with value:', {
+                                                    targetRiskRating,
+                                                    isNumber: typeof targetRiskRating === 'number',
+                                                    isValidRating: targetRiskRating !== undefined && targetRiskRating !== null,
+                                                    riskID,
+                                                    fromRiskQuery: targetRiskRatingQuery.data,
+                                                    fromCategoryQuery: targetRiskRatingByCategoryQuery.data
+                                                })}
+                                                <RiskRating riskRating={targetRiskRating} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
+                            <label className='flex gap-2 items-center mb-6'>
+                                <input type="checkbox" onChange={toggleAIAssistance} />
+                                <span>Allow AI Assistance</span>
+                            </label>
+                            <RiskDescriptionField value={formData.description} onChange={handleChange} {...{riskName: formData.name, selectedCategory, selectedClass}} />
+                            <TagsField value={formData.tags} onChange={handleChange} {...{riskName: formData.name, selectedCategory, selectedClass}} />
+                            <div className='flex flex-col gap-3 my-6'>
+                                <h4 className='font-medium'>Identification Tools</h4>
+                                <SelectedItemsList 
+                                    list={selectedIdentificationTools}
+                                    editable={true}
+                                    onRemove={(tool) => setFormData({...formData, identification_tool_ids: formData.identification_tool_ids.filter(id => id !== tool.id)})} />
+                                <div className=''>
+                                    <AddNewButton small={true} text={"Add Identification Tool"} onClick={() => setShowModal({type: 'tools', texts: {heading: 'Select Identification Tools', placeholder: 'Search Tools'}})} />
+                                </div>
+                            </div>
+                            <div className='w-1/2'>
+                                <label className="font-medium mb-2 block">Owner</label>
+                                <OwnerDropdown owners={users} selected={formData.owner_id} onChange={handleChange} />
+                            </div>
+                            <CKEField {...{name: 'note', label: 'Note (optional)', value: formData.note, onChange: handleChange}} />
                         </div>
-                        <div className='w-1/2'>
-                            <OwnerDropdown owners={users} selected={formData.owner_id} onChange={handleChange} />
-                        </div>
-                        <CKEField {...{name: 'note', label: 'Note (optional)', value: formData.note, onChange: handleChange}} />
                     </div>
                 </div>
                 <div className='flex flex-col gap-6'>
                     <h3 className='text-lg font-medium'>Linked Areas</h3>
                     <div className='w-1/2'>
+                        <label className="font-medium mb-2 block">Area</label>
                         <AreaDropdown areas={riskAreas} selected={formData.link_area_id} onChange={handleChange} />
                     </div>
                     <div className='flex gap-6'>
@@ -628,7 +635,15 @@ function TagsField({value, onChange, riskName, selectedCategory, selectedClass})
 function RiskCategoryDropdown({categories, selected, onChange}) {
     const [isCollapsed, setIsCollapsed] = useState(true);
     return (
-        <SelectDropdown label={'Category'} placeholder={'Select risk category'} items={categories} name={'category_id'} selected={selected} onSelect={onChange} isCollapsed={isCollapsed} onToggleCollpase={setIsCollapsed} />
+        <SelectDropdown 
+            placeholder={'Select risk category'} 
+            items={categories} 
+            name={'category_id'} 
+            selected={selected} 
+            onSelect={onChange} 
+            isCollapsed={isCollapsed} 
+            onToggleCollpase={setIsCollapsed} 
+        />
     );
 }
 
@@ -636,20 +651,17 @@ function RiskClassDropdown({classes, selected, onChange, totalClassCount, isAllC
     const [isCollapsed, setIsCollapsed] = useState(true);
     
     // Determine the appropriate placeholder text based on the classes array
-    // This provides better feedback to the user
     let placeholderText = 'Select risk class';
     
     if (classes.length === 0) {
         placeholderText = 'Please select a category first';
     } else if (isAllClasses) {
-        // This case happens when we're showing all classes because none match the selected category
         placeholderText = 'All risk classes (no category filter)';
     }
     
     return (
         <div className="flex flex-col">
             <SelectDropdown 
-                label={'Class'} 
                 placeholder={placeholderText} 
                 items={classes} 
                 name={'class_id'} 
@@ -657,7 +669,7 @@ function RiskClassDropdown({classes, selected, onChange, totalClassCount, isAllC
                 onSelect={onChange} 
                 isCollapsed={isCollapsed} 
                 onToggleCollpase={setIsCollapsed}
-                disabled={classes.length === 0} // Disable dropdown when no classes available
+                disabled={classes.length === 0}
             />
             
             {isAllClasses && (
@@ -676,14 +688,33 @@ function OwnerDropdown({owners, selected, onChange}) {
     const filteredOwners = owners.filter(o => new RegExp(filterTerm, 'i').test(o.text));
 
     return (
-        <SelectDropdown label={'Owner'} placeholder={'Select owner'} items={filteredOwners} name={'owner_id'} selected={selected} onSelect={onChange} isCollapsed={isCollapsed} onToggleCollpase={setIsCollapsed} filterable={true} filterTerm={filterTerm} setFilterTerm={setFilterTerm} />
+        <SelectDropdown 
+            placeholder={'Select owner'} 
+            items={filteredOwners} 
+            name={'owner_id'} 
+            selected={selected} 
+            onSelect={onChange} 
+            isCollapsed={isCollapsed} 
+            onToggleCollpase={setIsCollapsed} 
+            filterable={true} 
+            filterTerm={filterTerm} 
+            setFilterTerm={setFilterTerm} 
+        />
     );
 }
 
 function AreaDropdown({areas, selected, onChange}) {
     const [isCollapsed, setIsCollapsed] = useState(true);
     return (
-        <SelectDropdown label={'Area'} placeholder={'Select primary linked process'} items={areas} name={'link_area_id'} selected={selected} onSelect={onChange} isCollapsed={isCollapsed} onToggleCollpase={setIsCollapsed} />
+        <SelectDropdown 
+            placeholder={'Select primary linked process'} 
+            items={areas} 
+            name={'link_area_id'} 
+            selected={selected} 
+            onSelect={onChange} 
+            isCollapsed={isCollapsed} 
+            onToggleCollpase={setIsCollapsed} 
+        />
     );
 }
 

@@ -130,11 +130,11 @@ export default function RiskCategoryDialog({context, onRemoveModal}) {
                     </> :
                     <>
                         <div className="flex flex-col gap-3">
-                            <span className="font-medium">Category name</span>
+                            <span className="font-medium mb-2 block">Category name</span>
                             <p>{category.name}</p>
                         </div>
                         <div className="flex flex-col gap-3">
-                            <span className="font-medium">Description</span>
+                            <span className="font-medium mb-2 block">Description</span>
                             <p>{category.description}</p>
                         </div>
                         <hr className="border border-red-[#CCC]" />
@@ -154,7 +154,7 @@ export default function RiskCategoryDialog({context, onRemoveModal}) {
         <div className="bg-white border border-[#E2E2E2] rounded-2xl w-[500px] p-6">
             <div className="flex flex-col gap-6">
                 <header className="flex justify-between items-center">
-                    <h4 className="font-semibold text-lg">Risk Category</h4>
+                    <h4 className="text-lg text-gray-600">Risk Category</h4>
                     <CloseButton onClose={onRemoveModal} />
                 </header>
                 {content}

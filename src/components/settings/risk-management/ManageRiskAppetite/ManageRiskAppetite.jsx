@@ -7,7 +7,7 @@ import AppetitesTable from './components/AppetitesTable';
 import { useQuery } from '@tanstack/react-query';
 import { riskAppetitesOptions } from '../../../../queries/risks/risk-appetites';
 import BackButton from '../../components/BackButton';
-
+import { Tooltip } from 'react-tooltip';
 
 function ManageRiskAppetite() {
     const [searchTerm, setSearchTerm] = useState('');
@@ -30,9 +30,11 @@ function ManageRiskAppetite() {
                 <div>
                     <p className='flex gap-3 font-medium'>
                         Risk Appetite By Categories
-                        <InfoButton />
+                        <span data-tooltip-id="risk-appetite-info">
+                            <InfoButton />
+                        </span>
+                        <Tooltip id="risk-appetite-info" content="Customize risk settings for specific categories" />
                     </p>
-                    <p className='italic text-[#565656]'>Customize risk settings for specific categories.</p>
                 </div>
                 <SearchField placeholder={'Search categories'} searchTerm={searchTerm} onChange={setSearchTerm} />
                 <AppetitesTable items={filteredAppetites} />

@@ -325,8 +325,7 @@ const ProcessDashboard = () => {
           {/* First row of widgets (3 pie charts) */}
           <div className="bg-white rounded-lg p-4 shadow">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-medium">Total number of process: {processData?.total_processes || 0}</h3>
-              <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
+              <h3 className="text-lg font-bold">Total number of process: {processData?.total_processes || 0}</h3>
             </div>
             <div className="relative h-80">
               {isLoading ? (
@@ -351,8 +350,7 @@ const ProcessDashboard = () => {
           {/* Priority Distribution */}
           <div className="bg-white rounded-lg p-4 shadow">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-medium">Process distribution by priority level</h3>
-              <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
+              <h3 className="text-lg font-bold">Process distribution by priority level</h3>
             </div>
             <div className="relative h-80">
               <div className="absolute inset-0 flex items-center justify-center">
@@ -369,8 +367,7 @@ const ProcessDashboard = () => {
           {/* Business Unit Distribution */}
           <div className="bg-white rounded-lg p-4 shadow">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-medium">Process distribution by business unit</h3>
-              <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
+              <h3 className="text-lg font-bold">Process distribution by business unit</h3>
             </div>
             <div className="relative h-80">
               {isBusinessUnitLoading ? (
@@ -396,7 +393,7 @@ const ProcessDashboard = () => {
           <div className="bg-white rounded-lg shadow-md overflow-hidden col-span-1 xl:col-span-3">
             <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <h3 className="text-sm font-medium">Processes requiring attention:</h3>
+                <h3 className="text-lg font-bold">Processes requiring attention:</h3>
                 <select 
                   className="text-sm border-gray-300 rounded-md"
                   value={attentionItemsPerPage}
@@ -412,7 +409,6 @@ const ProcessDashboard = () => {
                   <option value="20">20</option>
                 </select>
               </div>
-              <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer" />
             </div>
 
             {isAttentionProcessesLoading ? (
@@ -464,7 +460,7 @@ const ProcessDashboard = () => {
                               <span className="px-2 py-1 text-green-600 bg-green-100 rounded-md text-sm">{process.status}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{process.type}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <td className="px-6 py-4 whitespace-nowrap text-left">
                               <button 
                                 onClick={() => navigate(`/process-management/${process.id}/view`, { state: { from: 'dashboard' } })}
                                 className="text-blue-500 hover:text-blue-700 font-medium"
@@ -521,7 +517,7 @@ const ProcessDashboard = () => {
           <div className="bg-white rounded-lg shadow p-4 col-span-1 xl:col-span-3">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center space-x-2">
-                <h3 className="text-sm font-medium">Workflow tasks overview:</h3>
+                <h3 className="text-lg font-bold">Workflow tasks overview:</h3>
                 {isProcessOptionsLoading ? (
                   <div className="text-sm text-gray-500">Loading processes...</div>
                 ) : processOptionsError ? (
@@ -560,7 +556,6 @@ const ProcessDashboard = () => {
                 >
                   <TableCellsIcon className="h-5 w-5 text-gray-600" />
                 </button>
-                <EllipsisVerticalIcon className="h-5 w-5 text-gray-400 cursor-pointer ml-1" />
               </div>
             </div>
 
